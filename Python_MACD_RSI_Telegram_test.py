@@ -47,7 +47,12 @@ def send_telegram_message(text):
         logging.error(f"Telegram send error: {e}")
 
 # === NLTK Sentiment Setup ===
-nltk.download('vader_lexicon')
+import nltk.data
+
+try:
+    nltk.data.find('sentiment/vader_lexicon.zip')
+except LookupError:
+    nltk.download('vader_lexicon')
 sia = SentimentIntensityAnalyzer()
 
 # === Tickers & Portfolio ===
@@ -219,7 +224,6 @@ def bot_loop():
             time.sleep(60)
 
 # === Flask server to keep free tier alive ===
-# === Flask server to keep free tier alive ===
 app = Flask(__name__)
 
 from flask import request
@@ -239,6 +243,13 @@ def test_alert():
 @app.route("/")
 def home():
     return "Trading Telegram Bot is running!"
+
+# === Start bot in background thread ===
+threading.Thread(target=bot_loop, daemon=True).start()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
 
 
 
