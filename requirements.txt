@@ -4,4 +4,4 @@ yfinance==0.2.25
 ta==0.10.2
 nltk==3.9.1
 requests==2.31.0
-python-telegram-bot==3.22
+python-telegram-bot==21.5
