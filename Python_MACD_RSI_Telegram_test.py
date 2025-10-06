@@ -219,7 +219,9 @@ def bot_loop():
             time.sleep(60)
 
 # === Flask server to keep free tier alive ===
+# === Flask server to keep free tier alive ===
 app = Flask(__name__)
+
 from flask import request
 
 @app.route("/test")
@@ -234,6 +236,9 @@ def test_alert():
         logging.error(f"Test alert failed: {e}")
         return f"❌ Error: {e}", 500
 
+@app.route("/")
+def home():
+    return "Trading Telegram Bot is running!"
 
 
 
