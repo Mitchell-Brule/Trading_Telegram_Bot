@@ -1,5 +1,7 @@
-yfinance
-ta
-requests
-python-telegram-bot==20.0
-nltk
+yfinance==0.2.38
+pandas==2.1.1
+ta==0.10.1
+requests==2.31.0
+python-telegram-bot==20.3
+nltk==3.8.1
+flask==2.3.3
