@@ -16,6 +16,10 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import nltk
 from flask import Flask
 
+# === In-memory log for website display ===
+web_alerts = []
+MAX_ALERTS = 50  # keep last 50 messages
+
 # === Logging setup ===
 logging.basicConfig(
     filename='bot.log',
@@ -43,8 +47,15 @@ def send_telegram_message(text):
     try:
         asyncio.run(send_async_message(text))
         logging.info(f"Telegram alert sent: {text}")
+
+        # Add message to web log
+        web_alerts.append(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {text}")
+        if len(web_alerts) > MAX_ALERTS:
+            web_alerts.pop(0)  # remove oldest if list is too long
+
     except Exception as e:
         logging.error(f"Telegram send error: {e}")
+
 
 # === NLTK Sentiment Setup ===
 import nltk.data
@@ -225,6 +236,24 @@ def bot_loop():
 
 # === Flask server to keep free tier alive ===
 app = Flask(__name__)
+from flask import render_template_string
+
+@app.route("/alerts")
+def show_alerts():
+    html = """
+    <html>
+        <head><title>Trading Bot Alerts</title></head>
+        <body>
+            <h1>Recent Alerts</h1>
+            <ul>
+            {% for alert in alerts %}
+                <li>{{ alert }}</li>
+            {% endfor %}
+            </ul>
+        </body>
+    </html>
+    """
+    return render_template_string(html, alerts=reversed(web_alerts))
 
 from flask import request
 
@@ -249,6 +278,7 @@ threading.Thread(target=bot_loop, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
 
 
 
