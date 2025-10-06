@@ -220,16 +220,20 @@ def bot_loop():
 
 # === Flask server to keep free tier alive ===
 app = Flask(__name__)
+from flask import request
 
-@app.route("/")
-def home():
-    return "Trading Telegram Bot is running!"
+@app.route("/test")
+def test_alert():
+    try:
+        message = "🚀 Test alert from your Render Trading Bot — it’s working!"
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": CHAT_ID, "text": message}
+        requests.post(url, json=payload)
+        return "✅ Test alert sent to Telegram!", 200
+    except Exception as e:
+        logging.error(f"Test alert failed: {e}")
+        return f"❌ Error: {e}", 500
 
-# === Start bot in background thread ===
-threading.Thread(target=bot_loop, daemon=True).start()
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
 
 
