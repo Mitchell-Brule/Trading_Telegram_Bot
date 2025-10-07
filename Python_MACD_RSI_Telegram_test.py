@@ -67,7 +67,31 @@ except LookupError:
 sia = SentimentIntensityAnalyzer()
 
 # === Tickers & Portfolio ===
-tickers = ["AAPL", "MSFT", "AMZN", "NVDA", "TSLA", "GOOGL", "GOOG", "META", "BRK-B", "JPM", "V", "MA", "UNH", "HD", "PG", "BAC", "XOM", "CVX", "PFE", "MRK", "VZ", "T", "NFLX", "INTC", "CSCO", "ORCL", "CRM", "ABNB", "AMD", "QCOM", "NKE", "MCD", "SBUX", "KO", "PEP", "COST", "WMT", "DIS", "ABBV", "LLY", "BMY", "GILD", "AMGN", "TMO", "LIN", "UPS", "FDX", "SLB", "COP", "BA", "CAT", "LMT", "RTX", "GE", "ADP", "TSM", "ASML", "AMAT", "AVGO", "TXN", "SHOP", "PYPL", "ZM", "SPOT", "SNOW", "MDB", "DOCU", "OKTA", "PANW", "DDOG", "TEAM", "NET", "ZS", "FTNT", "REGN", "BIIB", "MDT", "ABT", "DHR", "ISRG", "EW", "SYK", "MO", "PM", "KMB", "CL", "KHC", "GIS", "ADM", "CPB", "KMI", "PSX", "DVN", "ADBE", "ALGN", "AXP", "AMT", "ADI", "ANET", "ADSK", "CHRW", "CDNS", "CI", "CMCSA", "DE", "DG", "DUK", "EMR", "ETN", "EOG", "FIS", "HPE", "ILMN", "KKR", "KLAC", "LRCX", "MCHP", "MMC", "MNST", "MSI", "NOC", "NTES", "NXPI", "ORLY", "PAYC", "PGR", "RMD", "SNPS", "AVB", "BKNG", "BLK", "CDW", "CHTR", "CLX", "COF", "CTAS", "DELL", "FAST", "HCA", "HON", "IBM", "JCI", "LOW", "MAR", "ADP"]
+tickers = ["ABBV", "ABNB", "ABT", "ADBE", "ADI", "ADP", "ADSK", "ADM", "AAPL", "ALGN", "AMAT", "AMGN", "AMD", "AMT", "AMZN", "ANET", "APD", "ASML", "AVB", "AVGO", "AXP",
+"BA", "BAC", "BDX", "BIIB", "BKNG", "BLK", "BMY", "BRK-B", "BX",
+"CAT", "CDNS", "CDW", "CHRW", "CHTR", "CI", "CL", "CLX", "CMCSA", "CMG", "COF", "COP", "COST", "CPB", "CRM", "CRWD", "CSCO", "CTAS", "CVX",
+"DE", "DELL", "DG", "DHR", "DIS", "DOCU", "DUK", "DVN", "DDOG",
+"EMR", "ENPH", "EOG", "EQIX", "ETN", "EW", "EXPE",
+"FAST", "FDX", "FIS", "FISV", "FTNT",
+"GE", "GILD", "GIS", "GOOG", "GOOGL", "GS",
+"HCA", "HD", "HON", "HPE",
+"IBM", "ILMN", "INTC", "INTU", "ISRG",
+"JCI", "JPM",
+"KHC", "KIM", "KKR", "KLAC", "KMB", "KMI", "KO",
+"LAMR", "LIN", "LLY", "LMT", "LOW", "LRCX",
+"MA", "MAR", "MCD", "MCHP", "MDB", "MDT", "META", "MMC", "MNST", "MO", "MRK", "MS", "MSFT", "MSI", "MU",
+"NFLX", "NKE", "NOC", "NOW", "NTES", "NVDA", "NXPI",
+"OKTA", "ORCL", "ORLY",
+"PANW", "PAYC", "PEP", "PFE", "PG", "PGR", "PLD", "PM", "PSX", "PYPL",
+"QCOM",
+"REGN", "RMD", "ROST", "RTX",
+"SBUX", "SHOP", "SLB", "SNOW", "SNPS", "SO", "SPGI", "SPOT", "SYK",
+"TEAM", "T", "TMO", "TJX", "TMUS", "TSLA", "TSM", "TXN",
+"UNH", "UNP", "UPS",
+"V", "VZ",
+"WMT",
+"XOM", "ZM", "ZS"]
+
 my_stocks = []
 
 # === Alert Persistence ===
@@ -278,6 +302,7 @@ threading.Thread(target=bot_loop, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
 
 
 
