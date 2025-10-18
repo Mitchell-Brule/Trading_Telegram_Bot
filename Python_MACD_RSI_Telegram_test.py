@@ -124,11 +124,12 @@ def clear_old_alerts():
         pickle.dump(alerted_signals, f)
 
 # === Core signal check ===
-def check_signals():
+async def check_signals():
     global alerted_signals
     clear_old_alerts()
     print("🔍 Checking for MACD crosses + RSI + trend filtering...")
 
+    # download stock data
     try:
         data_dict = yf.download(
             tickers,
@@ -169,7 +170,7 @@ def check_signals():
                 if signal_id not in alerted_signals:
                     alerted_signals.add(signal_id)
                     msg = f"{emoji} MACD {cross_type.replace('_', ' ')}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
-                    send_telegram_message(msg)
+                    await send_async_message(msg)  # <-- await here
                     print(f"📈 Alert sent: {msg}")
 
                     signal_log.append({
@@ -197,13 +198,13 @@ async def schedule_bot():
             f.write(f"[{timestamp}] {message}\n")
 
     # --- Startup message ---
-    startup_msg = "✅ Bot started successfully — running first scan now..."
+    startup_msg = "✅ Bot started - running ..."
     print(startup_msg)
     await send_async_message(startup_msg)
     log_run(startup_msg)
 
     # --- First scan immediately ---
-    check_signals()
+    await check_signals()
     log_run("✅ First scan complete.")
 
     while True:
@@ -216,7 +217,7 @@ async def schedule_bot():
             await send_async_message(run_msg)
             log_run(run_msg)
 
-            check_signals()
+            await check_signals()
             last_run_hour = current_hour
 
             next_run_hour = {6: 12, 12: 18, 18: 6}[current_hour]
@@ -233,9 +234,15 @@ async def schedule_bot():
 def run_flask():
     app.run(host="0.0.0.0", port=5000)
 
-if __name__ == "__main__":
+
+if __name__ == "__main__" and not os.environ.get("WERKZEUG_RUN_MAIN"):
+    # Start Flask in the background
     threading.Thread(target=run_flask, daemon=True).start()
+    
+    # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
+
+
 
 
 
