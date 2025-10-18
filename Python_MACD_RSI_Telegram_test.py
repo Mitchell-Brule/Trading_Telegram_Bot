@@ -268,15 +268,6 @@ def get_next_run_time():
         year=tomorrow.year, month=tomorrow.month, day=tomorrow.day, tzinfo=pst
     )
 
-def scheduler_loop():
-    print("⏳ Scheduler started. Will run at PST/PDT times: ['06:45', '10:00', '13:05']")
-    while True:
-        next_run = get_next_run_time()
-        print(f"🕒 Next run scheduled at: {next_run.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-        sleep_seconds = (next_run - datetime.datetime.now(ZoneInfo('America/Los_Angeles'))).total_seconds()
-        time.sleep(max(0, sleep_seconds))
-        check_signals()
-        check_news_alerts()
 
 # === Flask thread + startup ===
 def run_flask():
@@ -339,6 +330,7 @@ def scheduler_loop():
 
 
 scheduler_loop()
+
 
 
 
