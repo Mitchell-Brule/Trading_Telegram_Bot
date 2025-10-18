@@ -244,5 +244,7 @@ def run_flask():
 
 if __name__ == "__main__":
     threading.Thread(target=run_flask, daemon=True).start()
-    schedule_bot()
+    asyncio.run(schedule_bot())
+
+
 
