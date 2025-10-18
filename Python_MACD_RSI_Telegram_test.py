@@ -191,29 +191,52 @@ def check_signals():
             print(f"⚠️ Error processing {ticker}: {e}")
 
 # === Scheduler Loop ===
-def schedule_bot():
-    send_telegram_message("✅ Bot started successfully — running first scan of the day...")
-    print("✅ Bot started successfully — running first scan of the day...")
+# === Async Scheduler Loop (runs first scan immediately) ===
+async def schedule_bot():
+    vancouver_tz = ZoneInfo("America/Vancouver")
+    last_run_hour = None
+
+    def log_run(message):
+        """Helper: write timestamped logs to run_log.txt"""
+        timestamp = datetime.datetime.now(vancouver_tz).strftime("%Y-%m-%d %I:%M:%S %p")
+        with open("run_log.txt", "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {message}\n")
+
+    # --- Startup message ---
+    startup_msg = "✅ Bot started successfully — running first scan now..."
+    print(startup_msg)
+    send_telegram_message(startup_msg)
+    log_run(startup_msg)
+
+    # --- Run first scan immediately ---
+    check_signals()
+    log_run("✅ First scan complete.")
 
     while True:
-        now = datetime.datetime.now(ZoneInfo("America/Vancouver"))
+        now = datetime.datetime.now(vancouver_tz)
         current_hour = now.hour
 
-        # Run three times a day: 6 AM, 12 PM, 6 PM (adjust if needed)
-        if current_hour in [6, 12, 18]:
-            print(f"🕕 Running checks at {now.strftime('%H:%M')}")
+        # Run three times daily at 6 AM, 12 PM, and 6 PM
+        if current_hour in [6, 12, 18] and current_hour != last_run_hour:
+            run_msg = f"🕕 Running scheduled scan at {now.strftime('%I:%M %p')}..."
+            print(run_msg)
+            send_telegram_message(run_msg)
+            log_run(run_msg)
+
             check_signals()
-            next_run = now.replace(hour=current_hour + 6 if current_hour < 18 else 6, minute=0, second=0, microsecond=0)
-            if current_hour >= 18:
-                next_run += datetime.timedelta(days=1)
-            wait_hours = (next_run - now).total_seconds() / 3600
-            msg = f"✅ Run complete — next run in {wait_hours:.1f} hours at {next_run.strftime('%I:%M %p')}."
-            print(msg)
-            send_telegram_message(msg)
-            time.sleep(wait_hours * 3600)
-        else:
-            # Sleep for 15 minutes and check again
-            time.sleep(900)
+            last_run_hour = current_hour
+
+            # Calculate next run info
+            next_run_hour = {6: 12, 12: 18, 18: 6}[current_hour]
+            hours_until_next = (next_run_hour - current_hour) % 24
+            next_str = (now + datetime.timedelta(hours=hours_until_next)).strftime("%I:%M %p")
+
+            complete_msg = f"✅ Run complete — next run in {hours_until_next} h at {next_str}"
+            print(complete_msg)
+            send_telegram_message(complete_msg)
+            log_run(complete_msg)
+
+        await asyncio.sleep(900)  # Sleep 15 min between checks
 
 # === Flask keepalive + thread start ===
 def run_flask():
@@ -222,3 +245,4 @@ def run_flask():
 if __name__ == "__main__":
     threading.Thread(target=run_flask, daemon=True).start()
     schedule_bot()
+
