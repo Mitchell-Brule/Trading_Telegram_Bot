@@ -1,12 +1,10 @@
 import yfinance as yf
 import ta
-import time
 import pickle
 import os
 import asyncio
 import datetime
 from zoneinfo import ZoneInfo
-import requests
 from telegram import Bot
 from telegram.request import HTTPXRequest
 from telegram.error import NetworkError
@@ -49,7 +47,7 @@ def send_telegram_message(text):
 
 # === Flask web log setup ===
 app = Flask(__name__)
-signal_log = []  # memory of all alerts
+signal_log = []
 
 @app.route("/")
 def index():
@@ -113,7 +111,7 @@ if os.path.exists(ALERTS_FILE):
 else:
     alerted_signals = set()
 
-# === NLTK ===
+# === NLTK setup ===
 nltk.download('vader_lexicon', quiet=True)
 sia = SentimentIntensityAnalyzer()
 
@@ -121,13 +119,10 @@ def clear_old_alerts():
     """Keep only today's alerts so we don't resend or spam."""
     global alerted_signals
     today = datetime.date.today().isoformat()
-    # Remove old signals not from today
     alerted_signals = {a for a in alerted_signals if a.startswith(today)}
     with open(ALERTS_FILE, "wb") as f:
         pickle.dump(alerted_signals, f)
 
-
-# === Core signal check ===
 # === Core signal check ===
 def check_signals():
     global alerted_signals
@@ -187,17 +182,16 @@ def check_signals():
 
                     with open(ALERTS_FILE, "wb") as f:
                         pickle.dump(alerted_signals, f)
+
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
 
-# === Scheduler Loop ===
-# === Async Scheduler Loop (runs first scan immediately) ===
+# === Async Scheduler ===
 async def schedule_bot():
     vancouver_tz = ZoneInfo("America/Vancouver")
     last_run_hour = None
 
     def log_run(message):
-        """Helper: write timestamped logs to run_log.txt"""
         timestamp = datetime.datetime.now(vancouver_tz).strftime("%Y-%m-%d %I:%M:%S %p")
         with open("run_log.txt", "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] {message}\n")
@@ -205,10 +199,10 @@ async def schedule_bot():
     # --- Startup message ---
     startup_msg = "✅ Bot started successfully — running first scan now..."
     print(startup_msg)
-    send_telegram_message(startup_msg)
+    await send_async_message(startup_msg)
     log_run(startup_msg)
 
-    # --- Run first scan immediately ---
+    # --- First scan immediately ---
     check_signals()
     log_run("✅ First scan complete.")
 
@@ -216,46 +210,32 @@ async def schedule_bot():
         now = datetime.datetime.now(vancouver_tz)
         current_hour = now.hour
 
-        # Run three times daily at 6 AM, 12 PM, and 6 PM
         if current_hour in [6, 12, 18] and current_hour != last_run_hour:
             run_msg = f"🕕 Running scheduled scan at {now.strftime('%I:%M %p')}..."
             print(run_msg)
-            send_telegram_message(run_msg)
+            await send_async_message(run_msg)
             log_run(run_msg)
 
             check_signals()
             last_run_hour = current_hour
 
-            # Calculate next run info
             next_run_hour = {6: 12, 12: 18, 18: 6}[current_hour]
             hours_until_next = (next_run_hour - current_hour) % 24
             next_str = (now + datetime.timedelta(hours=hours_until_next)).strftime("%I:%M %p")
-
             complete_msg = f"✅ Run complete — next run in {hours_until_next} h at {next_str}"
             print(complete_msg)
-            send_telegram_message(complete_msg)
+            await send_async_message(complete_msg)
             log_run(complete_msg)
 
-        await asyncio.sleep(900)  # Sleep 15 min between checks
+        await asyncio.sleep(900)
 
-# === Flask keepalive + thread start ===
+# === Flask keepalive thread ===
 def run_flask():
     app.run(host="0.0.0.0", port=5000)
 
-
 if __name__ == "__main__":
-    # Start Flask in the background
     threading.Thread(target=run_flask, daemon=True).start()
-
-    # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
-
-    # Keep process alive indefinitely (Render watchdog)
-    import time
-    while True:
-        time.sleep(3600)
-
-
 
 
 
