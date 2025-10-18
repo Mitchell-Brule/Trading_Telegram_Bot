@@ -43,10 +43,8 @@ def send_telegram_message(text):
     """Run async Telegram message safely, even inside sync code."""
     try:
         loop = asyncio.get_running_loop()
-        # If we're already inside an event loop (e.g., async context)
         asyncio.create_task(send_async_message(text))
     except RuntimeError:
-        # No running loop, so start a new one
         asyncio.run(send_async_message(text))
 
 
@@ -54,33 +52,34 @@ def send_telegram_message(text):
 # === List of tickers to check ===
 tickers = [
     "ABBV", "ABNB", "ABT", "ADBE", "ADI", "ADP", "ADSK", "ADM", "AAPL", "ALGN", "AMAT", "AMGN", "AMD", "AMT", "AMZN", "ANET", "APD", "ASML", "AVB", "AVGO", "AXP",
-"BA", "BAC", "BDX", "BIIB", "BKNG", "BLK", "BMY", "BRK-B", "BX",
-"CAT", "CDNS", "CDW", "CHRW", "CHTR", "CI", "CL", "CLX", "CMCSA", "CMG", "COF", "COP", "COST", "CPB", "CRM", "CRWD", "CSCO", "CTAS", "CVX",
-"DE", "DELL", "DG", "DHR", "DIS", "DOCU", "DUK", "DVN", "DDOG",
-"EMR", "ENPH", "EOG", "EQIX", "ETN", "EW", "EXPE",
-"FAST", "FDX", "FIS", "FTNT",
-"GE", "GILD", "GIS", "GOOG", "GOOGL", "GS",
-"HCA", "HD", "HON", "HPE",
-"IBM", "ILMN", "INTC", "INTU", "ISRG",
-"JCI", "JPM",
-"KHC", "KIM", "KKR", "KLAC", "KMB", "KMI", "KO",
-"LAMR", "LIN", "LLY", "LMT", "LOW", "LRCX",
-"MA", "MAR", "MCD", "MCHP", "MDB", "MDT", "META", "MMC", "MNST", "MO", "MRK", "MS", "MSFT", "MSI", "MU",
-"NFLX", "NKE", "NOC", "NOW", "NTES", "NVDA", "NXPI",
-"OKTA", "ORCL", "ORLY",
-"PANW", "PAYC", "PEP", "PFE", "PG", "PGR", "PLD", "PM", "PSX", "PYPL",
-"QCOM",
-"REGN", "RMD", "ROST", "RTX",
-"SBUX", "SHOP", "SLB", "SNOW", "SNPS", "SO", "SPGI", "SPOT", "SYK",
-"TEAM", "T", "TMO", "TJX", "TMUS", "TSLA", "TSM", "TXN",
-"UNH", "UNP", "UPS",
-"V", "VZ",
-"WMT",
-"XOM", "ZM", "ZS"
+    "BA", "BAC", "BDX", "BIIB", "BKNG", "BLK", "BMY", "BRK-B", "BX",
+    "CAT", "CDNS", "CDW", "CHRW", "CHTR", "CI", "CL", "CLX", "CMCSA", "CMG", "COF", "COP", "COST", "CPB", "CRM", "CRWD", "CSCO", "CTAS", "CVX",
+    "DE", "DELL", "DG", "DHR", "DIS", "DOCU", "DUK", "DVN", "DDOG",
+    "EMR", "ENPH", "EOG", "EQIX", "ETN", "EW", "EXPE",
+    "FAST", "FDX", "FIS", "FTNT",
+    "GE", "GILD", "GIS", "GOOG", "GOOGL", "GS",
+    "HCA", "HD", "HON", "HPE",
+    "IBM", "ILMN", "INTC", "INTU", "ISRG",
+    "JCI", "JPM",
+    "KHC", "KIM", "KKR", "KLAC", "KMB", "KMI", "KO",
+    "LAMR", "LIN", "LLY", "LMT", "LOW", "LRCX",
+    "MA", "MAR", "MCD", "MCHP", "MDB", "MDT", "META", "MMC", "MNST", "MO", "MRK", "MS", "MSFT", "MSI", "MU",
+    "NFLX", "NKE", "NOC", "NOW", "NTES", "NVDA", "NXPI",
+    "OKTA", "ORCL", "ORLY",
+    "PANW", "PAYC", "PEP", "PFE", "PG", "PGR", "PLD", "PM", "PSX", "PYPL",
+    "QCOM",
+    "REGN", "RMD", "ROST", "RTX",
+    "SBUX", "SHOP", "SLB", "SNOW", "SNPS", "SO", "SPGI", "SPOT", "SYK",
+    "TEAM", "T", "TMO", "TJX", "TMUS", "TSLA", "TSM", "TXN",
+    "UNH", "UNP", "UPS",
+    "V", "VZ",
+    "WMT",
+    "XOM", "ZM", "ZS"
 ]
 
 # === Stocks you own (for sell alerts) ===
 my_stocks = []
+
 
 # === File to store previous alerts ===
 alert_file = "alerts.pkl"
@@ -94,24 +93,18 @@ if os.path.exists(alert_file):
         alerted = {}
 else:
     alerted = {}
-# === Daily summary lists ===
-daily_cross_ups_new = set()     # MACD cross ups for tickers you don't own
-daily_cross_down_owned = set()  # MACD cross downs for tickers you own
 
 # === NLTK setup ===
 nltk.download('vader_lexicon', quiet=True)
 sia = SentimentIntensityAnalyzer()
 
+
 # === MACD + RSI Signal Check ===
-# === MACD + RSI Signal Check (fixed with summary + immediate alerts) ===
 def check_signals():
     global alerted
-    # Daily summary lists
-    daily_cross_ups_new = []      # cross ups for tickers you don't own
-    daily_cross_down_owned = []   # cross downs for tickers you own
-
     try:
-        print("🔍 Checking MACD + RSI signals...")
+        print("🔍 Checking for MACD crosses + RSI with trend filtering...")
+
         data_dict = yf.download(
             tickers,
             period="6mo",
@@ -121,109 +114,67 @@ def check_signals():
             progress=False
         )
 
+        any_alerts_today = False
+
         for ticker in tickers:
             try:
                 data = data_dict[ticker].copy()
-                if data.empty:
-                    continue
+                close = data["Close"]
 
-                # Localize timezone
-                if data.index.tz is None:
-                    data.index = data.index.tz_localize('UTC').tz_convert('America/New_York')
-                else:
-                    data.index = data.index.tz_convert('America/New_York')
-
-                close = data["Close"].squeeze()
-
-                # MACD and RSI
+                # MACD
                 macd_indicator = ta.trend.MACD(close, window_fast=12, window_slow=26, window_sign=9)
                 data["macd"] = macd_indicator.macd()
                 data["macd_signal"] = macd_indicator.macd_signal()
+                data["macd_hist"] = macd_indicator.macd_diff()
+
+                # RSI
                 data["rsi"] = ta.momentum.RSIIndicator(close, window=14).rsi()
-                data["50ma"] = close.rolling(window=50).mean()
 
-                last_price = close.iloc[-1]
-                last_rsi = data["rsi"].iloc[-1]
-                trend = "Uptrend" if last_price > data["50ma"].iloc[-1] else "Downtrend"
+                # MACD Cross logic
+                cross_up = (data["macd"] > data["macd_signal"]) & (data["macd"].shift(1) <= data["macd_signal"].shift(1))
+                cross_down = (data["macd"] < data["macd_signal"]) & (data["macd"].shift(1) >= data["macd_signal"].shift(1))
 
-                macd_cross_up = (data["macd"] > data["macd_signal"]) & (data["macd"].shift(1) <= data["macd_signal"].shift(1))
-                macd_cross_down = (data["macd"] < data["macd_signal"]) & (data["macd"].shift(1) >= data["macd_signal"].shift(1))
+                # Trend filter
+                sma = close.rolling(window=20).mean()
+                trend_list = ["Uptrend" if close.iloc[i] > sma.iloc[i] else "Downtrend" for i in range(len(data))]
 
-                # === BUY SIGNALS (cross up) ===
-                if macd_cross_up.iloc[-1] and ticker not in my_stocks and alerted.get(ticker) != "up":
-                    msg = f"🔵 MACD CROSS UP: {ticker} RSI = {last_rsi:.2f} Trend: {trend}"
-                    send_telegram_message(msg)  # immediate alert
-                    daily_cross_ups_new.append(f"{ticker} | RSI={last_rsi:.2f} | Trend={trend}")
-                    alerted[ticker] = "up"
+                latest_idx = data.index[-1]
 
-                # === SELL SIGNALS (cross down) ONLY for owned stocks ===
-                elif macd_cross_down.iloc[-1] and ticker in my_stocks and alerted.get(ticker) != "down":
-                    msg = f"🔻 MACD CROSS DOWN: {ticker} RSI = {last_rsi:.2f} Trend: {trend}"
-                    send_telegram_message(msg)  # immediate alert
-                    daily_cross_down_owned.append(f"{ticker} | RSI={last_rsi:.2f} | Trend={trend}")
-                    alerted[ticker] = "down"
+                # === Cross Up (only for stocks you DON'T own) ===
+                if cross_up.loc[latest_idx] and ticker not in my_stocks:
+                    key = f"{ticker}_{latest_idx.date()}"
+                    if alerted.get(key) != "up":
+                        msg = f"🔵 MACD CROSS UP: {ticker} RSI = {data['rsi'].loc[latest_idx]:.2f} Trend: {trend_list[-1]}"
+                        send_telegram_message(msg)
+                        alerted[key] = "up"
+                        any_alerts_today = True
+
+                # === Cross Down (only for stocks you DO own) ===
+                if cross_down.loc[latest_idx] and ticker in my_stocks:
+                    key = f"{ticker}_{latest_idx.date()}"
+                    if alerted.get(key) != "down":
+                        msg = f"🔻 MACD CROSS DOWN: {ticker} RSI = {data['rsi'].loc[latest_idx]:.2f} Trend: {trend_list[-1]}"
+                        send_telegram_message(msg)
+                        alerted[key] = "down"
+                        any_alerts_today = True
 
             except Exception as e:
-                print(f"Error processing {ticker}: {e}")
+                print(f"❌ Error processing {ticker}: {e}")
 
-        # === End-of-run summary ===
-        if daily_cross_ups_new:
-            summary_up = "📊 MACD CROSS UP SUMMARY (new tickers today):\n" + "\n".join(daily_cross_ups_new)
-            send_telegram_message(summary_up)
+        # Save alerts
+        with open(alert_file, "wb") as f:
+            pickle.dump(alerted, f)
 
-        if daily_cross_down_owned:
-            summary_down = "📊 MACD CROSS DOWN SUMMARY (owned tickers today):\n" + "\n".join(daily_cross_down_owned)
-            send_telegram_message(summary_down)
-
-        if not daily_cross_ups_new and not daily_cross_down_owned:
+        if not any_alerts_today:
             print("📭 No MACD cross signals today.")
+            send_telegram_message("📭 No MACD cross signals today.")
 
-        # === Save alerts ===
-        with open(alert_file, "wb") as f:
-            pickle.dump(alerted, f)
-
-    except Exception as e:
-        print(f"Error checking signals: {e}")
-
-
-        # Detect if any new alerts happened during this run
-        new_alerts_today = False
-        for ticker in tickers:
-            if macd_cross_up.iloc[-1] and alerted.get(ticker) == "up":
-                new_alerts_today = True
-            if macd_cross_down.iloc[-1] and alerted.get(ticker) == "down":
-                new_alerts_today = True
-
-        # Save alerts
-        with open(alert_file, "wb") as f:
-            pickle.dump(alerted, f)
-
-        if not new_alerts_today:
-            print("📭 No trade signals today.")
-            send_telegram_message("📭 No trade signals today.")
+        print("✅ check_signals() complete.\n")
 
     except Exception as e:
-        print(f"Error fetching data: {e}")
+        print(f"❌ Error in check_signals(): {e}")
+        send_telegram_message(f"⚠️ Error in check_signals(): {e}")
 
-        # Detect if any new alerts happened during this run
-        new_alerts_today = False
-        for ticker in tickers:
-            if macd_cross_up.iloc[-1] and alerted.get(ticker) == "up":
-                new_alerts_today = True
-            if macd_cross_down.iloc[-1] and alerted.get(ticker) == "down":
-                new_alerts_today = True
-
-        # Save alerts
-        with open(alert_file, "wb") as f:
-            pickle.dump(alerted, f)
-
-        if not new_alerts_today:
-            print("📭 No trade signals today.")
-            send_telegram_message("📭 No trade signals today.")
-
-
-    except Exception as e:
-        print(f"Error fetching data: {e}")
 
 # === News + Hype Alerts ===
 NEWS_API_KEY = "be1ef3d5ba614c959c1c7b8b14744eda"
@@ -280,8 +231,9 @@ def check_news_alerts():
         except Exception as e:
             print(f"Error fetching news for {ticker}: {e}")
 
-# === Pacific Time Scheduler (3 runs per day) ===
-run_times = ["06:45", "10:00", "13:05"]  # PST/PDT
+
+# === Pacific Time Scheduler ===
+run_times = ["06:45", "10:00", "13:05"]
 pacific = ZoneInfo("America/Los_Angeles")
 
 def seconds_until_next_run():
@@ -303,38 +255,34 @@ def seconds_until_next_run():
     next_run = min(future_times)
     return (next_run - now).total_seconds()
 
+
 # === Startup confirmation ===
 startup_msg = "✅ Bot started successfully — running first test."
 print(startup_msg)
 send_telegram_message(startup_msg)
 
-# Run immediate test on startup
+# === Immediate test ===
 check_signals()
 check_news_alerts()
 print("\n✅ Initial test complete. Now waiting for schedule...\n")
 
-
-# === Main loop with live countdown ===
 print("⏳ Scheduler started. Will run at PST/PDT times:", run_times)
-
 
 while True:
     wait_seconds = seconds_until_next_run()
     next_run = datetime.datetime.now(pacific) + datetime.timedelta(seconds=wait_seconds)
     print(f"\n🕒 Next run scheduled at: {next_run.strftime('%Y-%m-%d %H:%M:%S %Z')}")
 
-    # Live countdown timer
     for remaining in range(int(wait_seconds), 0, -1):
         mins, secs = divmod(remaining, 60)
-        timer_display = f"⏳ Time until next check: {mins:02d}:{secs:02d}"
-        print(timer_display, end="\r", flush=True)
+        print(f"⏳ Time until next check: {mins:02d}:{secs:02d}", end="\r", flush=True)
         time.sleep(1)
 
     print("\n🚀 Running checks now!\n")
-
-    # Run your main functions
     check_signals()
     check_news_alerts()
+
+
 
 
 
