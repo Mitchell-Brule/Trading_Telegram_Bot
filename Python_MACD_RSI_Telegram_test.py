@@ -117,9 +117,20 @@ else:
 nltk.download('vader_lexicon', quiet=True)
 sia = SentimentIntensityAnalyzer()
 
+def clear_old_alerts():
+    """Keep only today's alerts so we don't resend or spam."""
+    global alerted_signals
+    today = datetime.date.today().isoformat()
+    # Remove old signals not from today
+    alerted_signals = {a for a in alerted_signals if a.startswith(today)}
+    with open(ALERTS_FILE, "wb") as f:
+        pickle.dump(alerted_signals, f)
+
+
 # === Core signal check ===
 def check_signals():
     global alerted_signals
+    clear_old_alerts()
     print("🔍 Checking for MACD crosses + RSI + trend filtering...")
 
     data_dict = yf.download(
@@ -155,7 +166,9 @@ def check_signals():
             # - cross UP if you DON'T own it
             if (ticker in my_stocks and cross_down) or (ticker not in my_stocks and cross_up):
                 cross_type = "🔴 MACD CROSS DOWN" if cross_down else "🔵 MACD CROSS UP"
-                signal_id = f"{ticker}_{cross_type}"
+                today = datetime.date.today().isoformat()
+                signal_id = f"{today}_{ticker}_{cross_type}"
+
 
                 if signal_id not in alerted_signals:
                     alerted_signals.add(signal_id)
@@ -303,10 +316,14 @@ def scheduler_loop():
         check_signals()
         check_news_alerts()
 
-        # --- End of run message ---
-        send_telegram_message(f"✅ Daily checks complete — next run at {next_str}")
+        # --- Compute next run time and send summary ---
+        next_after_this = get_next_run_time()
+        next_after_str = next_after_this.strftime("%Y-%m-%d %H:%M:%S %Z")
+        send_telegram_message(f"✅ All checks complete. Next run at {next_after_str}")
+
 
 scheduler_loop()
+
 
 
 
