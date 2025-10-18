@@ -146,32 +146,35 @@ def check_signals():
             rsi_now = df["RSI"].iloc[-1]
             trend = "Uptrend" if df["MA50"].iloc[-1] > df["MA200"].iloc[-1] else "Downtrend"
 
-            if macd_prev < signal_prev and macd_now > signal_now:
-                cross_type = "🔵 MACD CROSS UP"
-            elif macd_prev > signal_prev and macd_now < signal_now:
-                cross_type = "🔴 MACD CROSS DOWN"
-            else:
-                continue
+            # Detect MACD cross
+            cross_up = macd_prev < signal_prev and macd_now > signal_now
+            cross_down = macd_prev > signal_prev and macd_now < signal_now
 
-            signal_id = f"{ticker}_{cross_type}"
-            if signal_id not in alerted_signals:
-                alerted_signals.add(signal_id)
-                msg = f"{cross_type}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
-                send_telegram_message(msg)
+            # Only alert:
+            # - cross DOWN if you OWN it
+            # - cross UP if you DON'T own it
+            if (ticker in my_stocks and cross_down) or (ticker not in my_stocks and cross_up):
+                cross_type = "🔴 MACD CROSS DOWN" if cross_down else "🔵 MACD CROSS UP"
+                signal_id = f"{ticker}_{cross_type}"
 
-                # Log for web display
-                signal_log.append({
-                    "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ticker": ticker,
-                    "type": cross_type,
-                    "rsi": f"{rsi_now:.2f}",
-                    "trend": trend
-                })
+                if signal_id not in alerted_signals:
+                    alerted_signals.add(signal_id)
+                    msg = f"{cross_type}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
+                    send_telegram_message(msg)
+
+                    signal_log.append({
+                        "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "ticker": ticker,
+                        "type": cross_type,
+                        "rsi": f"{rsi_now:.2f}",
+                        "trend": trend
+                    })
 
         except Exception as e:
             print(f"⚠️ Error on {ticker}: {e}")
             continue
 
+    # Save alert memory
     with open(ALERTS_FILE, "wb") as f:
         pickle.dump(alerted_signals, f)
 
@@ -262,4 +265,5 @@ check_signals()
 check_news_alerts()
 print("✅ Initial test complete. Now waiting for schedule...")
 scheduler_loop()
+
 
