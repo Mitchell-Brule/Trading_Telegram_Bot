@@ -4,19 +4,21 @@ import time
 import pickle
 import os
 import asyncio
-from telegram import Bot
-from telegram.request import HTTPXRequest
-import requests
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
-import nltk
 import datetime
 from zoneinfo import ZoneInfo
+import requests
+from telegram import Bot
+from telegram.request import HTTPXRequest
 from telegram.error import NetworkError
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import nltk
+from flask import Flask, render_template_string
+import threading
 import nest_asyncio
+
 nest_asyncio.apply()  # allows nested event loops
 
-
-# === Telegram setup (async-safe, persistent session) ===
+# === Telegram setup ===
 bot_token = "7481105387:AAHsNaOFEuMuWan2E1Y44VMrWeiZcxBjCAw"
 chat_id = 7602575312
 
@@ -26,7 +28,6 @@ bot = Bot(
 )
 
 async def send_async_message(text):
-    """Send a Telegram message asynchronously with retries."""
     for attempt in range(3):
         try:
             await bot.send_message(chat_id=chat_id, text=text)
@@ -40,143 +41,143 @@ async def send_async_message(text):
             return
 
 def send_telegram_message(text):
-    """Run async Telegram message safely, even inside sync code."""
     try:
         loop = asyncio.get_running_loop()
         asyncio.create_task(send_async_message(text))
     except RuntimeError:
         asyncio.run(send_async_message(text))
 
+# === Flask web log setup ===
+app = Flask(__name__)
+signal_log = []  # memory of all alerts
 
+@app.route("/")
+def index():
+    html = """
+    <html>
+        <head>
+            <title>Trading Bot Logs</title>
+            <meta http-equiv="refresh" content="30">
+            <style>
+                body { font-family: Arial; background-color: #111; color: #eee; text-align: center; }
+                h1 { color: #4CAF50; }
+                table { margin: auto; border-collapse: collapse; width: 90%; }
+                td, th { border: 1px solid #444; padding: 8px; }
+                tr:nth-child(even) { background-color: #222; }
+                .up { color: #4CAF50; }
+                .down { color: #F44336; }
+            </style>
+        </head>
+        <body>
+            <h1>📈 Trading Bot Signals</h1>
+            <p>Last updated: {{ last_update }}</p>
+            <table>
+                <tr><th>Time</th><th>Ticker</th><th>Type</th><th>RSI</th><th>Trend</th></tr>
+                {% for s in signals %}
+                    <tr>
+                        <td>{{ s['time'] }}</td>
+                        <td>{{ s['ticker'] }}</td>
+                        <td class="{{ 'up' if 'UP' in s['type'] else 'down' }}">{{ s['type'] }}</td>
+                        <td>{{ s['rsi'] }}</td>
+                        <td>{{ s['trend'] }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </body>
+    </html>
+    """
+    return render_template_string(
+        html,
+        signals=signal_log[-100:],
+        last_update=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
 
-# === List of tickers to check ===
+# === Stock lists ===
 tickers = [
-    "ABBV", "ABNB", "ABT", "ADBE", "ADI", "ADP", "ADSK", "ADM", "AAPL", "ALGN", "AMAT", "AMGN", "AMD", "AMT", "AMZN", "ANET", "APD", "ASML", "AVB", "AVGO", "AXP",
-    "BA", "BAC", "BDX", "BIIB", "BKNG", "BLK", "BMY", "BRK-B", "BX",
-    "CAT", "CDNS", "CDW", "CHRW", "CHTR", "CI", "CL", "CLX", "CMCSA", "CMG", "COF", "COP", "COST", "CPB", "CRM", "CRWD", "CSCO", "CTAS", "CVX",
-    "DE", "DELL", "DG", "DHR", "DIS", "DOCU", "DUK", "DVN", "DDOG",
-    "EMR", "ENPH", "EOG", "EQIX", "ETN", "EW", "EXPE",
-    "FAST", "FDX", "FIS", "FTNT",
-    "GE", "GILD", "GIS", "GOOG", "GOOGL", "GS",
-    "HCA", "HD", "HON", "HPE",
-    "IBM", "ILMN", "INTC", "INTU", "ISRG",
-    "JCI", "JPM",
-    "KHC", "KIM", "KKR", "KLAC", "KMB", "KMI", "KO",
-    "LAMR", "LIN", "LLY", "LMT", "LOW", "LRCX",
-    "MA", "MAR", "MCD", "MCHP", "MDB", "MDT", "META", "MMC", "MNST", "MO", "MRK", "MS", "MSFT", "MSI", "MU",
-    "NFLX", "NKE", "NOC", "NOW", "NTES", "NVDA", "NXPI",
-    "OKTA", "ORCL", "ORLY",
-    "PANW", "PAYC", "PEP", "PFE", "PG", "PGR", "PLD", "PM", "PSX", "PYPL",
-    "QCOM",
-    "REGN", "RMD", "ROST", "RTX",
-    "SBUX", "SHOP", "SLB", "SNOW", "SNPS", "SO", "SPGI", "SPOT", "SYK",
-    "TEAM", "T", "TMO", "TJX", "TMUS", "TSLA", "TSM", "TXN",
-    "UNH", "UNP", "UPS",
-    "V", "VZ",
-    "WMT",
-    "XOM", "ZM", "ZS"
+    "ABBV","ABNB","ABT","ADBE","ADI","ADP","ADSK","ADM","AAPL","ALGN","AMAT","AMGN","AMD","AMT","AMZN","ANET","APD","ASML","AVB","AVGO","AXP",
+    "BA","BAC","BDX","BIIB","BKNG","BLK","BMY","BRK-B","BX","CAT","CDNS","CDW","CHRW","CHTR","CI","CL","CLX","CMCSA","CMG","COF","COP","COST","CPB",
+    "CRM","CRWD","CSCO","CTAS","CVX","DE","DELL","DG","DHR","DIS","DOCU","DUK","DVN","DDOG","EMR","ENPH","EOG","EQIX","ETN","EW","EXPE",
+    "FAST","FDX","FIS","FTNT","GE","GILD","GIS","GOOG","GOOGL","GS","HCA","HD","HON","HPE","IBM","ILMN","INTC","INTU","ISRG","JCI","JPM",
+    "KHC","KIM","KKR","KLAC","KMB","KMI","KO","LAMR","LIN","LLY","LMT","LOW","LRCX","MA","MAR","MCD","MCHP","MDB","MDT","META","MMC","MNST",
+    "MO","MRK","MS","MSFT","MSI","MU","NFLX","NKE","NOC","NOW","NTES","NVDA","NXPI","OKTA","ORCL","ORLY","PANW","PAYC","PEP","PFE","PG","PGR",
+    "PLD","PM","PSX","PYPL","QCOM","REGN","RMD","ROST","RTX","SBUX","SHOP","SLB","SNOW","SNPS","SO","SPGI","SPOT","SYK","TEAM","T","TMO","TJX",
+    "TMUS","TSLA","TSM","TXN","UNH","UNP","UPS","V","VZ","WMT","XOM","ZM","ZS"
 ]
-
-# === Stocks you own (for sell alerts) ===
 my_stocks = []
 
-
-# === File to store previous alerts ===
-alert_file = "alerts.pkl"
-if os.path.exists(alert_file):
-    try:
-        with open(alert_file, "rb") as f:
-            alerted = pickle.load(f)
-            if not isinstance(alerted, dict):
-                alerted = {}
-    except Exception:
-        alerted = {}
+# === File for alert memory ===
+ALERTS_FILE = "alerted_signals.pkl"
+if os.path.exists(ALERTS_FILE):
+    with open(ALERTS_FILE, "rb") as f:
+        alerted_signals = pickle.load(f)
 else:
-    alerted = {}
+    alerted_signals = set()
 
-# === NLTK setup ===
+# === NLTK ===
 nltk.download('vader_lexicon', quiet=True)
 sia = SentimentIntensityAnalyzer()
 
-
-# === MACD + RSI Signal Check ===
+# === Core signal check ===
 def check_signals():
-    global alerted
-    try:
-        print("🔍 Checking for MACD crosses + RSI with trend filtering...")
+    global alerted_signals
+    print("🔍 Checking for MACD crosses + RSI + trend filtering...")
 
-        data_dict = yf.download(
-            tickers,
-            period="6mo",
-            interval="1d",
-            group_by="ticker",
-            auto_adjust=False,
-            progress=False
-        )
+    data_dict = yf.download(
+        tickers,
+        period="6mo",
+        interval="1d",
+        group_by="ticker",
+        auto_adjust=False,
+        progress=False
+    )
 
-        any_alerts_today = False
+    for ticker in tickers:
+        try:
+            df = data_dict[ticker].dropna()
+            macd_indicator = ta.trend.MACD(df["Close"])
+            df["MACD"] = macd_indicator.macd()
+            df["Signal"] = macd_indicator.macd_signal()
+            df["RSI"] = ta.momentum.RSIIndicator(df["Close"], window=14).rsi()
+            df["MA50"] = df["Close"].rolling(window=50).mean()
+            df["MA200"] = df["Close"].rolling(window=200).mean()
 
-        for ticker in tickers:
-            try:
-                data = data_dict[ticker].copy()
-                close = data["Close"]
+            macd_prev, macd_now = df["MACD"].iloc[-2], df["MACD"].iloc[-1]
+            signal_prev, signal_now = df["Signal"].iloc[-2], df["Signal"].iloc[-1]
+            rsi_now = df["RSI"].iloc[-1]
+            trend = "Uptrend" if df["MA50"].iloc[-1] > df["MA200"].iloc[-1] else "Downtrend"
 
-                # MACD
-                macd_indicator = ta.trend.MACD(close, window_fast=12, window_slow=26, window_sign=9)
-                data["macd"] = macd_indicator.macd()
-                data["macd_signal"] = macd_indicator.macd_signal()
-                data["macd_hist"] = macd_indicator.macd_diff()
+            if macd_prev < signal_prev and macd_now > signal_now:
+                cross_type = "🔵 MACD CROSS UP"
+            elif macd_prev > signal_prev and macd_now < signal_now:
+                cross_type = "🔴 MACD CROSS DOWN"
+            else:
+                continue
 
-                # RSI
-                data["rsi"] = ta.momentum.RSIIndicator(close, window=14).rsi()
+            signal_id = f"{ticker}_{cross_type}"
+            if signal_id not in alerted_signals:
+                alerted_signals.add(signal_id)
+                msg = f"{cross_type}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
+                send_telegram_message(msg)
 
-                # MACD Cross logic
-                cross_up = (data["macd"] > data["macd_signal"]) & (data["macd"].shift(1) <= data["macd_signal"].shift(1))
-                cross_down = (data["macd"] < data["macd_signal"]) & (data["macd"].shift(1) >= data["macd_signal"].shift(1))
+                # Log for web display
+                signal_log.append({
+                    "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "ticker": ticker,
+                    "type": cross_type,
+                    "rsi": f"{rsi_now:.2f}",
+                    "trend": trend
+                })
 
-                # Trend filter
-                sma = close.rolling(window=20).mean()
-                trend_list = ["Uptrend" if close.iloc[i] > sma.iloc[i] else "Downtrend" for i in range(len(data))]
+        except Exception as e:
+            print(f"⚠️ Error on {ticker}: {e}")
+            continue
 
-                latest_idx = data.index[-1]
+    with open(ALERTS_FILE, "wb") as f:
+        pickle.dump(alerted_signals, f)
 
-                # === Cross Up (only for stocks you DON'T own) ===
-                if cross_up.loc[latest_idx] and ticker not in my_stocks:
-                    key = f"{ticker}_{latest_idx.date()}"
-                    if alerted.get(key) != "up":
-                        msg = f"🔵 MACD CROSS UP: {ticker} RSI = {data['rsi'].loc[latest_idx]:.2f} Trend: {trend_list[-1]}"
-                        send_telegram_message(msg)
-                        alerted[key] = "up"
-                        any_alerts_today = True
+    print("✅ check_signals() complete.")
 
-                # === Cross Down (only for stocks you DO own) ===
-                if cross_down.loc[latest_idx] and ticker in my_stocks:
-                    key = f"{ticker}_{latest_idx.date()}"
-                    if alerted.get(key) != "down":
-                        msg = f"🔻 MACD CROSS DOWN: {ticker} RSI = {data['rsi'].loc[latest_idx]:.2f} Trend: {trend_list[-1]}"
-                        send_telegram_message(msg)
-                        alerted[key] = "down"
-                        any_alerts_today = True
-
-            except Exception as e:
-                print(f"❌ Error processing {ticker}: {e}")
-
-        # Save alerts
-        with open(alert_file, "wb") as f:
-            pickle.dump(alerted, f)
-
-        if not any_alerts_today:
-            print("📭 No MACD cross signals today.")
-            send_telegram_message("📭 No MACD cross signals today.")
-
-        print("✅ check_signals() complete.\n")
-
-    except Exception as e:
-        print(f"❌ Error in check_signals(): {e}")
-        send_telegram_message(f"⚠️ Error in check_signals(): {e}")
-
-
-# === News + Hype Alerts ===
+# === News check ===
 NEWS_API_KEY = "be1ef3d5ba614c959c1c7b8b14744eda"
 NEWS_API_ENDPOINT = "https://newsapi.org/v2/everything"
 
@@ -193,7 +194,6 @@ def check_news_alerts():
             }
             response = requests.get(NEWS_API_ENDPOINT, params=params, timeout=15)
             data = response.json()
-
             if "articles" not in data or not data["articles"]:
                 continue
 
@@ -213,79 +213,52 @@ def check_news_alerts():
             total_articles = len(compound_scores)
 
             if avg_sentiment >= 0.8 and num_positive >= 3:
-                msg = (
-                    f"📈 {ticker}: strong positive sentiment!\n"
-                    f"{num_positive}/{total_articles} articles are bullish.\n"
-                    f"Avg sentiment: {avg_sentiment:.2f}"
+                send_telegram_message(
+                    f"📈 {ticker}: strong positive sentiment!\n{num_positive}/{total_articles} bullish.\nAvg sentiment: {avg_sentiment:.2f}"
                 )
-                send_telegram_message(msg)
 
             if ticker in my_stocks and avg_sentiment <= 0.3 and num_negative >= 3:
-                msg = (
-                    f"⚠️ {ticker}: trending negative.\n"
-                    f"{num_negative}/{total_articles} articles bearish.\n"
-                    f"Avg sentiment: {avg_sentiment:.2f}"
+                send_telegram_message(
+                    f"⚠️ {ticker}: trending negative.\n{num_negative}/{total_articles} bearish.\nAvg sentiment: {avg_sentiment:.2f}"
                 )
-                send_telegram_message(msg)
 
         except Exception as e:
             print(f"Error fetching news for {ticker}: {e}")
 
+# === Scheduler ===
+def get_next_run_time():
+    pst = ZoneInfo("America/Los_Angeles")
+    now = datetime.datetime.now(pst)
+    schedule_times = ["06:45", "10:00", "13:05"]
+    for t in schedule_times:
+        run_time = datetime.datetime.strptime(t, "%H:%M").replace(
+            year=now.year, month=now.month, day=now.day, tzinfo=pst
+        )
+        if run_time > now:
+            return run_time
+    tomorrow = now + datetime.timedelta(days=1)
+    return datetime.datetime.strptime(schedule_times[0], "%H:%M").replace(
+        year=tomorrow.year, month=tomorrow.month, day=tomorrow.day, tzinfo=pst
+    )
 
-# === Pacific Time Scheduler ===
-run_times = ["06:45", "10:00", "13:05"]
-pacific = ZoneInfo("America/Los_Angeles")
+def scheduler_loop():
+    print("⏳ Scheduler started. Will run at PST/PDT times: ['06:45', '10:00', '13:05']")
+    while True:
+        next_run = get_next_run_time()
+        print(f"🕒 Next run scheduled at: {next_run.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        sleep_seconds = (next_run - datetime.datetime.now(ZoneInfo('America/Los_Angeles'))).total_seconds()
+        time.sleep(max(0, sleep_seconds))
+        check_signals()
+        check_news_alerts()
 
-def seconds_until_next_run():
-    now = datetime.datetime.now(pacific)
-    today = now.date()
-    future_times = []
+# === Flask thread + startup ===
+def run_flask():
+    app.run(host="0.0.0.0", port=10000)
 
-    for t in run_times:
-        h, m = map(int, t.split(":"))
-        run_dt = datetime.datetime.combine(today, datetime.time(h, m), tzinfo=pacific)
-        if run_dt > now:
-            future_times.append(run_dt)
+threading.Thread(target=run_flask, daemon=True).start()
 
-    if not future_times:
-        h, m = map(int, run_times[0].split(":"))
-        run_dt = datetime.datetime.combine(today + datetime.timedelta(days=1), datetime.time(h, m), tzinfo=pacific)
-        future_times.append(run_dt)
-
-    next_run = min(future_times)
-    return (next_run - now).total_seconds()
-
-
-# === Startup confirmation ===
-startup_msg = "✅ Bot started successfully — running first test."
-print(startup_msg)
-send_telegram_message(startup_msg)
-
-# === Immediate test ===
+send_telegram_message("✅ Bot started successfully — running first test.")
 check_signals()
 check_news_alerts()
-print("\n✅ Initial test complete. Now waiting for schedule...\n")
-
-print("⏳ Scheduler started. Will run at PST/PDT times:", run_times)
-
-while True:
-    wait_seconds = seconds_until_next_run()
-    next_run = datetime.datetime.now(pacific) + datetime.timedelta(seconds=wait_seconds)
-    print(f"\n🕒 Next run scheduled at: {next_run.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-
-    for remaining in range(int(wait_seconds), 0, -1):
-        mins, secs = divmod(remaining, 60)
-        print(f"⏳ Time until next check: {mins:02d}:{secs:02d}", end="\r", flush=True)
-        time.sleep(1)
-
-    print("\n🚀 Running checks now!\n")
-    check_signals()
-    check_news_alerts()
-
-
-
-
-
-
-
-
+print("✅ Initial test complete. Now waiting for schedule...")
+scheduler_loop()
