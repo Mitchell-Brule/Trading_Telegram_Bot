@@ -260,10 +260,54 @@ def run_flask():
 
 threading.Thread(target=run_flask, daemon=True).start()
 
-send_telegram_message("✅ Bot started successfully — running first test.")
+# === Flask thread + startup ===
+def run_flask():
+    app.run(host="0.0.0.0", port=10000)
+
+threading.Thread(target=run_flask, daemon=True).start()
+
+# === STARTUP CONTROL ===
+LAST_START_FILE = "last_start.txt"
+
+def already_started_today():
+    """Check if bot has already announced start today."""
+    today = datetime.date.today().isoformat()
+    if os.path.exists(LAST_START_FILE):
+        with open(LAST_START_FILE, "r") as f:
+            last = f.read().strip()
+        if last == today:
+            return True
+    with open(LAST_START_FILE, "w") as f:
+        f.write(today)
+    return False
+
+# === MAIN LOOP ===
+if not already_started_today():
+    send_telegram_message("✅ Bot started successfully — running first test.")
+
 check_signals()
 check_news_alerts()
 print("✅ Initial test complete. Now waiting for schedule...")
+
+def scheduler_loop():
+    print("⏳ Scheduler started. Will run at PST/PDT times: ['06:45', '10:00', '13:05']")
+    while True:
+        next_run = get_next_run_time()
+        next_str = next_run.strftime("%Y-%m-%d %H:%M:%S %Z")
+        print(f"🕒 Next run scheduled at: {next_str}")
+
+        sleep_seconds = (next_run - datetime.datetime.now(ZoneInfo('America/Los_Angeles'))).total_seconds()
+        time.sleep(max(0, sleep_seconds))
+
+        # --- Run the checks ---
+        check_signals()
+        check_news_alerts()
+
+        # --- End of run message ---
+        send_telegram_message(f"✅ Daily checks complete — next run at {next_str}")
+
 scheduler_loop()
+
+
 
 
