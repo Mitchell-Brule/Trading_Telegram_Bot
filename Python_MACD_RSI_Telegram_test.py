@@ -128,6 +128,7 @@ def clear_old_alerts():
 
 
 # === Core signal check ===
+# === Core signal check ===
 def check_signals():
     global alerted_signals
     clear_old_alerts()
@@ -149,8 +150,6 @@ def check_signals():
     for ticker in tickers:
         try:
             df = data_dict[ticker].dropna()
-
-            # --- Indicators ---
             macd_indicator = ta.trend.MACD(df["Close"])
             df["MACD"] = macd_indicator.macd()
             df["Signal"] = macd_indicator.macd_signal()
@@ -158,34 +157,26 @@ def check_signals():
             df["MA50"] = df["Close"].rolling(window=50).mean()
             df["MA200"] = df["Close"].rolling(window=200).mean()
 
-            # --- Latest values ---
             macd_prev, macd_now = df["MACD"].iloc[-2], df["MACD"].iloc[-1]
             signal_prev, signal_now = df["Signal"].iloc[-2], df["Signal"].iloc[-1]
             rsi_now = df["RSI"].iloc[-1]
             trend = "Uptrend" if df["MA50"].iloc[-1] > df["MA200"].iloc[-1] else "Downtrend"
 
-            # --- Cross detection ---
             cross_up = macd_prev < signal_prev and macd_now > signal_now
             cross_down = macd_prev > signal_prev and macd_now < signal_now
 
-            # --- Filter by ownership ---
             if (ticker in my_stocks and cross_down) or (ticker not in my_stocks and cross_up):
                 cross_type = "CROSS_DOWN" if cross_down else "CROSS_UP"
                 emoji = "🔴" if cross_down else "🔵"
-
-                # --- Unique alert ID for today ---
                 today = datetime.date.today().isoformat()
                 signal_id = f"{today}_{ticker}_{cross_type}"
 
                 if signal_id not in alerted_signals:
                     alerted_signals.add(signal_id)
-
-                    # --- Send alert ---
                     msg = f"{emoji} MACD {cross_type.replace('_', ' ')}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
                     send_telegram_message(msg)
                     print(f"📈 Alert sent: {msg}")
 
-                    # --- Add to web log ---
                     signal_log.append({
                         "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         "ticker": ticker,
@@ -194,146 +185,40 @@ def check_signals():
                         "trend": trend
                     })
 
-                    # --- Save alerts right away ---
                     with open(ALERTS_FILE, "wb") as f:
                         pickle.dump(alerted_signals, f)
-
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
-            continue
 
-    print("✅ check_signals() complete.")
+# === Scheduler Loop ===
+def schedule_bot():
+    send_telegram_message("✅ Bot started successfully — running first scan of the day...")
+    print("✅ Bot started successfully — running first scan of the day...")
 
-# === News check ===
-NEWS_API_KEY = "be1ef3d5ba614c959c1c7b8b14744eda"
-NEWS_API_ENDPOINT = "https://newsapi.org/v2/everything"
-
-def check_news_alerts():
-    print("📰 Checking for aggregated news sentiment...")
-    for ticker in tickers[:10]:
-        try:
-            params = {
-                "q": ticker,
-                "sortBy": "publishedAt",
-                "language": "en",
-                "apiKey": NEWS_API_KEY,
-                "pageSize": 10
-            }
-            response = requests.get(NEWS_API_ENDPOINT, params=params, timeout=15)
-            data = response.json()
-            if "articles" not in data or not data["articles"]:
-                continue
-
-            compound_scores = []
-            for article in data["articles"]:
-                text = (article.get("title") or "") + ". " + (article.get("description") or "")
-                if text.strip() and len(text) < 1000:
-                    sentiment = sia.polarity_scores(text)
-                    compound_scores.append(sentiment["compound"])
-
-            if not compound_scores:
-                continue
-
-            avg_sentiment = sum(compound_scores) / len(compound_scores)
-            num_positive = len([s for s in compound_scores if s > 0.6])
-            num_negative = len([s for s in compound_scores if s < -0.6])
-            total_articles = len(compound_scores)
-
-            if avg_sentiment >= 0.8 and num_positive >= 3:
-                send_telegram_message(
-                    f"📈 {ticker}: strong positive sentiment!\n{num_positive}/{total_articles} bullish.\nAvg sentiment: {avg_sentiment:.2f}"
-                )
-
-            if ticker in my_stocks and avg_sentiment <= 0.3 and num_negative >= 3:
-                send_telegram_message(
-                    f"⚠️ {ticker}: trending negative.\n{num_negative}/{total_articles} bearish.\nAvg sentiment: {avg_sentiment:.2f}"
-                )
-
-        except Exception as e:
-            print(f"Error fetching news for {ticker}: {e}")
-
-# === Scheduler ===
-def get_next_run_time():
-    pst = ZoneInfo("America/Los_Angeles")
-    now = datetime.datetime.now(pst)
-    schedule_times = ["06:45", "10:00", "13:05"]
-    for t in schedule_times:
-        run_time = datetime.datetime.strptime(t, "%H:%M").replace(
-            year=now.year, month=now.month, day=now.day, tzinfo=pst
-        )
-        if run_time > now:
-            return run_time
-    tomorrow = now + datetime.timedelta(days=1)
-    return datetime.datetime.strptime(schedule_times[0], "%H:%M").replace(
-        year=tomorrow.year, month=tomorrow.month, day=tomorrow.day, tzinfo=pst
-    )
-
-
-# === Flask thread + startup ===
-def run_flask():
-    app.run(host="0.0.0.0", port=10000)
-
-threading.Thread(target=run_flask, daemon=True).start()
-
-# === Flask thread + startup ===
-def run_flask():
-    app.run(host="0.0.0.0", port=10000)
-
-threading.Thread(target=run_flask, daemon=True).start()
-
-# === STARTUP CONTROL ===
-LAST_START_FILE = "last_start.txt"
-
-started_today_flag = False
-
-def already_started_today():
-    """Check if bot has already announced start today."""
-    today = datetime.date.today().isoformat()
-    if os.path.exists(LAST_START_FILE):
-        with open(LAST_START_FILE, "r") as f:
-            last = f.read().strip()
-        if last == today:
-            return True
-    with open(LAST_START_FILE, "w") as f:
-        f.write(today)
-    return False
-
-# === MAIN LOOP ===
-global started_today_flag
-if not started_today_flag and not already_started_today():
-    send_telegram_message("✅ Bot started successfully — running first test.")
-    started_today_flag = True
-
-
-check_signals()
-check_news_alerts()
-print("✅ Initial test complete. Now waiting for schedule...")
-
-def scheduler_loop():
-    print("⏳ Scheduler started. Will run at PST/PDT times: ['06:45', '10:00', '13:05']")
     while True:
-        next_run = get_next_run_time()
-        next_str = next_run.strftime("%Y-%m-%d %H:%M:%S %Z")
-        print(f"🕒 Next run scheduled at: {next_str}")
+        now = datetime.datetime.now(ZoneInfo("America/Vancouver"))
+        current_hour = now.hour
 
-        sleep_seconds = (next_run - datetime.datetime.now(ZoneInfo('America/Los_Angeles'))).total_seconds()
-        time.sleep(max(0, sleep_seconds))
+        # Run three times a day: 6 AM, 12 PM, 6 PM (adjust if needed)
+        if current_hour in [6, 12, 18]:
+            print(f"🕕 Running checks at {now.strftime('%H:%M')}")
+            check_signals()
+            next_run = now.replace(hour=current_hour + 6 if current_hour < 18 else 6, minute=0, second=0, microsecond=0)
+            if current_hour >= 18:
+                next_run += datetime.timedelta(days=1)
+            wait_hours = (next_run - now).total_seconds() / 3600
+            msg = f"✅ Run complete — next run in {wait_hours:.1f} hours at {next_run.strftime('%I:%M %p')}."
+            print(msg)
+            send_telegram_message(msg)
+            time.sleep(wait_hours * 3600)
+        else:
+            # Sleep for 15 minutes and check again
+            time.sleep(900)
 
-        # --- Run the checks ---
-        check_signals()
-        check_news_alerts()
+# === Flask keepalive + thread start ===
+def run_flask():
+    app.run(host="0.0.0.0", port=5000)
 
-        # --- Compute next run time and send summary ---
-        next_after_this = get_next_run_time()
-        next_after_str = next_after_this.strftime("%Y-%m-%d %H:%M:%S %Z")
-        send_telegram_message(f"✅ All checks complete. Next run at {next_after_str}")
-
-
-scheduler_loop()
-
-
-
-
-
-
-
+if __name__ == "__main__":
+    threading.Thread(target=run_flask, daemon=True).start()
+    schedule_bot()
