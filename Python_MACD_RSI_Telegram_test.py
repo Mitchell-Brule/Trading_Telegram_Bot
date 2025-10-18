@@ -133,18 +133,24 @@ def check_signals():
     clear_old_alerts()
     print("🔍 Checking for MACD crosses + RSI + trend filtering...")
 
-    data_dict = yf.download(
-        tickers,
-        period="6mo",
-        interval="1d",
-        group_by="ticker",
-        auto_adjust=False,
-        progress=False
-    )
+    try:
+        data_dict = yf.download(
+            tickers,
+            period="6mo",
+            interval="1d",
+            group_by="ticker",
+            auto_adjust=False,
+            progress=False
+        )
+    except Exception as e:
+        print(f"⚠️ Error downloading data: {e}")
+        return
 
     for ticker in tickers:
         try:
             df = data_dict[ticker].dropna()
+
+            # --- Indicators ---
             macd_indicator = ta.trend.MACD(df["Close"])
             df["MACD"] = macd_indicator.macd()
             df["Signal"] = macd_indicator.macd_signal()
@@ -152,44 +158,49 @@ def check_signals():
             df["MA50"] = df["Close"].rolling(window=50).mean()
             df["MA200"] = df["Close"].rolling(window=200).mean()
 
+            # --- Latest values ---
             macd_prev, macd_now = df["MACD"].iloc[-2], df["MACD"].iloc[-1]
             signal_prev, signal_now = df["Signal"].iloc[-2], df["Signal"].iloc[-1]
             rsi_now = df["RSI"].iloc[-1]
             trend = "Uptrend" if df["MA50"].iloc[-1] > df["MA200"].iloc[-1] else "Downtrend"
 
-            # Detect MACD cross
+            # --- Cross detection ---
             cross_up = macd_prev < signal_prev and macd_now > signal_now
             cross_down = macd_prev > signal_prev and macd_now < signal_now
 
-            # Only alert:
-            # - cross DOWN if you OWN it
-            # - cross UP if you DON'T own it
+            # --- Filter by ownership ---
             if (ticker in my_stocks and cross_down) or (ticker not in my_stocks and cross_up):
-                cross_type = "🔴 MACD CROSS DOWN" if cross_down else "🔵 MACD CROSS UP"
+                cross_type = "CROSS_DOWN" if cross_down else "CROSS_UP"
+                emoji = "🔴" if cross_down else "🔵"
+
+                # --- Unique alert ID for today ---
                 today = datetime.date.today().isoformat()
                 signal_id = f"{today}_{ticker}_{cross_type}"
 
-
                 if signal_id not in alerted_signals:
                     alerted_signals.add(signal_id)
-                    msg = f"{cross_type}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
-                    send_telegram_message(msg)
 
+                    # --- Send alert ---
+                    msg = f"{emoji} MACD {cross_type.replace('_', ' ')}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
+                    send_telegram_message(msg)
+                    print(f"📈 Alert sent: {msg}")
+
+                    # --- Add to web log ---
                     signal_log.append({
                         "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         "ticker": ticker,
-                        "type": cross_type,
+                        "type": f"{emoji} MACD {cross_type.replace('_', ' ')}",
                         "rsi": f"{rsi_now:.2f}",
                         "trend": trend
                     })
 
-        except Exception as e:
-            print(f"⚠️ Error on {ticker}: {e}")
-            continue
+                    # --- Save alerts right away ---
+                    with open(ALERTS_FILE, "wb") as f:
+                        pickle.dump(alerted_signals, f)
 
-    # Save alert memory
-    with open(ALERTS_FILE, "wb") as f:
-        pickle.dump(alerted_signals, f)
+        except Exception as e:
+            print(f"⚠️ Error processing {ticker}: {e}")
+            continue
 
     print("✅ check_signals() complete.")
 
@@ -282,6 +293,8 @@ threading.Thread(target=run_flask, daemon=True).start()
 # === STARTUP CONTROL ===
 LAST_START_FILE = "last_start.txt"
 
+started_today_flag = False
+
 def already_started_today():
     """Check if bot has already announced start today."""
     today = datetime.date.today().isoformat()
@@ -295,8 +308,11 @@ def already_started_today():
     return False
 
 # === MAIN LOOP ===
-if not already_started_today():
+global started_today_flag
+if not started_today_flag and not already_started_today():
     send_telegram_message("✅ Bot started successfully — running first test.")
+    started_today_flag = True
+
 
 check_signals()
 check_news_alerts()
@@ -323,6 +339,7 @@ def scheduler_loop():
 
 
 scheduler_loop()
+
 
 
 
