@@ -242,9 +242,20 @@ async def schedule_bot():
 def run_flask():
     app.run(host="0.0.0.0", port=5000)
 
+
 if __name__ == "__main__":
+    # Start Flask in the background
     threading.Thread(target=run_flask, daemon=True).start()
+
+    # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
+
+    # Keep process alive indefinitely (Render watchdog)
+    import time
+    while True:
+        time.sleep(3600)
+
+
 
 
 
