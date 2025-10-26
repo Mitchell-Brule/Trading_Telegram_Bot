@@ -15,7 +15,9 @@ import threading
 import nest_asyncio
 
 nest_asyncio.apply()  # allows nested event loops
+
 STARTUP_FILE = "startup_sent.txt"
+
 # === Telegram setup ===
 bot_token = "7481105387:AAHsNaOFEuMuWan2E1Y44VMrWeiZcxBjCAw"
 chat_id = 7602575312
@@ -205,7 +207,6 @@ async def check_signals():
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
 
-
 # === Async Scheduler ===
 async def schedule_bot():
     """
@@ -213,36 +214,31 @@ async def schedule_bot():
     On startup it runs one immediate scan.
     """
     vancouver_tz = ZoneInfo("America/Vancouver")
-    last_run_date = None   # date of the last completed run
-    last_run_hour = None   # hour of the last completed run
+    last_run_date = None
+    last_run_hour = None
 
-    # --- Startup check ---
-    try:
+    # --- Startup check using atomic file ---
+    def should_send_startup():
         today_str = str(datetime.date.today())
-        last_startup = ""
-        if os.path.exists(STARTUP_FILE):
-            with open(STARTUP_FILE) as f:
-                last_startup = f.read().strip()
-
-        if last_startup != today_str:
-            startup_msg = "✅ Bot started - Running 24/7 with 3 scans per day!"
-            print(startup_msg)
-            await send_async_message(startup_msg)
-
-            # Run one immediate scan at startup
-            print("🕒 Running initial startup scan...")
-            await check_signals()
-            print("✅ Initial startup scan complete.")
-
-            # Mark startup done
-            with open(STARTUP_FILE, "w") as f:
+        try:
+            fd = os.open(STARTUP_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, "w") as f:
                 f.write(today_str)
-        else:
-            print("✅ Bot already started today, skipping Telegram startup message and initial scan.")
-    except Exception as e:
-        print(f"⚠️ Error during startup: {e}")
+            return True
+        except FileExistsError:
+            return False
 
-    scheduled_hours = [6, 12, 18]  # Vancouver local time hours to run
+    if should_send_startup():
+        startup_msg = "✅ Bot started - Running 24/7 with 3 scans per day!"
+        print(startup_msg)
+        await send_async_message(startup_msg)
+        print("🕒 Running initial startup scan...")
+        await check_signals()
+        print("✅ Initial startup scan complete.")
+    else:
+        print("✅ Bot already started today, skipping startup message.")
+
+    scheduled_hours = [6, 12, 18]
 
     while True:
         try:
@@ -251,9 +247,7 @@ async def schedule_bot():
             current_date = now.date()
 
             if current_hour in scheduled_hours:
-                # Run only once per scheduled hour per day
                 if last_run_hour != current_hour or last_run_date != current_date:
-                    # If the date changed, clear old alerts (keeps memory small)
                     if last_run_date != current_date:
                         clear_old_alerts()
 
@@ -264,7 +258,6 @@ async def schedule_bot():
                     except Exception as e:
                         print(f"⚠️ Failed to send run-start message: {e}")
 
-                    # Run the main scan
                     try:
                         await check_signals()
                     except Exception as e:
@@ -277,30 +270,23 @@ async def schedule_bot():
                     except Exception as e:
                         print(f"⚠️ Failed to send run-complete message: {e}")
 
-                    # Persist last-run markers
                     last_run_hour = current_hour
                     last_run_date = current_date
 
-            # Wake up frequently to stay responsive; Render + UptimeRobot will keep process alive
             await asyncio.sleep(60)
 
         except Exception as loop_exc:
-            # Catch-all to ensure scheduler loop doesn't die
             print(f"🔥 Scheduler loop error, continuing: {loop_exc}")
             await asyncio.sleep(60)
 
-
 # === Flask keepalive thread ===
 def run_flask():
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, use_reloader=False)  # prevent duplicate starts
 
-
-if __name__ == "__main__" and not os.environ.get("WERKZEUG_RUN_MAIN"):
-    # Start Flask in the background
+if __name__ == "__main__":
     threading.Thread(target=run_flask, daemon=True).start()
-    
-    # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
+
 
 
 
