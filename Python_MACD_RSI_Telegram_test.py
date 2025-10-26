@@ -210,45 +210,37 @@ async def check_signals():
 async def schedule_bot():
     """
     Runs 3 scans per day (06:00, 12:00, 18:00 America/Vancouver).
-    On startup it runs one immediate scan (remove that behavior below if you prefer
-    to wait until the next scheduled time).
+    On startup it runs one immediate scan.
     """
     vancouver_tz = ZoneInfo("America/Vancouver")
     last_run_date = None   # date of the last completed run
     last_run_hour = None   # hour of the last completed run
 
+    # --- Startup check ---
+    try:
+        today_str = str(datetime.date.today())
+        last_startup = ""
+        if os.path.exists(STARTUP_FILE):
+            with open(STARTUP_FILE) as f:
+                last_startup = f.read().strip()
 
-
-
-
-
-    # Only send startup message once per day
-    if not os.path.exists(STARTUP_FILE) or open(STARTUP_FILE).read() != str(datetime.date.today()):
-        startup_msg = "✅ Bot started - Running 24/7 with 3 scans per day!"
-        print(startup_msg)
-        try:
+        if last_startup != today_str:
+            startup_msg = "✅ Bot started - Running 24/7 with 3 scans per day!"
+            print(startup_msg)
             await send_async_message(startup_msg)
-        except Exception as e:
-            print(f"⚠️ Failed to send startup Telegram message: {e}")
-        with open(STARTUP_FILE, "w") as f:
-            f.write(str(datetime.date.today()))
-    else:
-        print("✅ Bot already started today, skipping Telegram startup message.")
 
+            # Run one immediate scan at startup
+            print("🕒 Running initial startup scan...")
+            await check_signals()
+            print("✅ Initial startup scan complete.")
 
-
-
-
-    
-
-    # Optionally run one immediate scan at startup (comment out the next block if you prefer to wait)
-    if not os.path.exists(STARTUP_FILE) or open(STARTUP_FILE).read() != str(datetime.date.today()):
-    print("🕒 Running initial startup scan...")
-    await check_signals()
-    print("✅ Initial startup scan complete.")
-
+            # Mark startup done
+            with open(STARTUP_FILE, "w") as f:
+                f.write(today_str)
+        else:
+            print("✅ Bot already started today, skipping Telegram startup message and initial scan.")
     except Exception as e:
-        print(f"⚠️ Error during initial startup scan: {e}")
+        print(f"⚠️ Error during startup: {e}")
 
     scheduled_hours = [6, 12, 18]  # Vancouver local time hours to run
 
@@ -285,7 +277,7 @@ async def schedule_bot():
                     except Exception as e:
                         print(f"⚠️ Failed to send run-complete message: {e}")
 
-                    # persist last-run markers
+                    # Persist last-run markers
                     last_run_hour = current_hour
                     last_run_date = current_date
 
@@ -298,10 +290,6 @@ async def schedule_bot():
             await asyncio.sleep(60)
 
 
- 
-
- 
-
 # === Flask keepalive thread ===
 def run_flask():
     app.run(host="0.0.0.0", port=5000)
@@ -313,15 +301,6 @@ if __name__ == "__main__" and not os.environ.get("WERKZEUG_RUN_MAIN"):
     
     # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
-
-
-
-
-
-
-
-
-
 
 
 
