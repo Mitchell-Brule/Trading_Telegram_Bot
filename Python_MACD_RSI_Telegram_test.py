@@ -13,6 +13,7 @@ import nltk
 from flask import Flask, render_template_string
 import threading
 import nest_asyncio
+import pandas as pd
 
 nest_asyncio.apply()  # allows nested event loops
 
@@ -125,7 +126,7 @@ def clear_old_alerts():
     with open(ALERTS_FILE, "wb") as f:
         pickle.dump(alerted_signals, f)
 
-# === Core signal check ===
+# === Core signal check (fixed duplicate issue) ===
 async def check_signals():
     global alerted_signals
     clear_old_alerts()
@@ -144,9 +145,18 @@ async def check_signals():
         print(f"⚠️ Error downloading data: {e}")
         return
 
+    # Handle multi-ticker MultiIndex correctly
+    if isinstance(data_dict.columns, pd.MultiIndex):
+        data_dict = {ticker: data_dict[ticker].dropna() for ticker in tickers if ticker in data_dict}
+
     for ticker in tickers:
         try:
-            df = data_dict[ticker].dropna()
+            if ticker not in data_dict:
+                continue
+
+            df = data_dict[ticker]
+            if len(df) < 2:
+                continue
 
             macd_indicator = ta.trend.MACD(df["Close"])
             df["MACD"] = macd_indicator.macd()
@@ -167,7 +177,7 @@ async def check_signals():
                 cross_type = "CROSS_DOWN" if cross_down else "CROSS_UP"
                 emoji = "🔴" if cross_down else "🔵"
 
-                # Use today's date for unique ID to prevent duplicates
+                # Unique ID to prevent duplicates
                 today_str = datetime.date.today().isoformat()
                 signal_id = f"{today_str}_{ticker}_{cross_type}"
 
@@ -267,9 +277,5 @@ def run_flask():
 if __name__ == "__main__":
     threading.Thread(target=run_flask, daemon=True).start()
     asyncio.run(schedule_bot())
-
-
-
-
 
 
