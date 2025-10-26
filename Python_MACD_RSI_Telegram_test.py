@@ -129,7 +129,7 @@ async def check_signals():
     clear_old_alerts()
     print("🔍 Checking for MACD crosses + RSI + trend filtering...")
 
-    # download stock data
+    # Download all tickers at once
     try:
         data_dict = yf.download(
             tickers,
@@ -146,6 +146,7 @@ async def check_signals():
     for ticker in tickers:
         try:
             df = data_dict[ticker].dropna()
+
             macd_indicator = ta.trend.MACD(df["Close"])
             df["MACD"] = macd_indicator.macd()
             df["Signal"] = macd_indicator.macd_signal()
@@ -153,41 +154,57 @@ async def check_signals():
             df["MA50"] = df["Close"].rolling(window=50).mean()
             df["MA200"] = df["Close"].rolling(window=200).mean()
 
+            # Extract latest values
             macd_prev, macd_now = df["MACD"].iloc[-2], df["MACD"].iloc[-1]
             signal_prev, signal_now = df["Signal"].iloc[-2], df["Signal"].iloc[-1]
             rsi_now = df["RSI"].iloc[-1]
             trend = "Uptrend" if df["MA50"].iloc[-1] > df["MA200"].iloc[-1] else "Downtrend"
 
+            # Detect MACD signals
             cross_up = macd_prev < signal_prev and macd_now > signal_now
             cross_down = macd_prev > signal_prev and macd_now < signal_now
 
+            # Determine signal direction based on holdings preference
             if (ticker in my_stocks and cross_down) or (ticker not in my_stocks and cross_up):
                 cross_type = "CROSS_DOWN" if cross_down else "CROSS_UP"
                 emoji = "🔴" if cross_down else "🔵"
-            # Use the latest bar date as the signal identifier so the same candle won't re-alert
-                bar_time = df.index[-1].strftime("%Y-%m-%d")
-                signal_id = f"{bar_time}_{ticker}_{cross_type}"
 
+                # Create unique ID per candle
+                bar_date = df.index[-1].date()
+                signal_id = f"{bar_date}_{ticker}_{cross_type}"
 
-                if signal_id not in alerted_signals:
-                    alerted_signals.add(signal_id)
-                    msg = f"{emoji} MACD {cross_type.replace('_', ' ')}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
-                    await send_async_message(msg)  # <-- await here
-                    print(f"📈 Alert sent: {msg}")
+                # ✅ Stop duplicates: Only alert once per day per ticker
+                if signal_id in alerted_signals:
+                    continue  # Skip if alerted already today
 
-                    signal_log.append({
-                        "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "ticker": ticker,
-                        "type": f"{emoji} MACD {cross_type.replace('_', ' ')}",
-                        "rsi": f"{rsi_now:.2f}",
-                        "trend": trend
-                    })
+                # ✅ Only alert if new signal is from TODAY
+                if bar_date != datetime.date.today():
+                    continue
 
-                    with open(ALERTS_FILE, "wb") as f:
-                        pickle.dump(alerted_signals, f)
+                # ✅ Store signal so it won't repeat
+                alerted_signals.add(signal_id)
+
+                # Build alert message
+                msg = f"{emoji} MACD {cross_type.replace('_', ' ')}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
+                await send_async_message(msg)
+                print(f"📈 Alert sent: {msg}")
+
+                # Log alert for dashboard
+                signal_log.append({
+                    "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "ticker": ticker,
+                    "type": f"{emoji} MACD {cross_type.replace('_', ' ')}",
+                    "rsi": f"{rsi_now:.2f}",
+                    "trend": trend
+                })
+
+                # Persist alerted signals to disk
+                with open(ALERTS_FILE, "wb") as f:
+                    pickle.dump(alerted_signals, f)
 
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
+
 
 # === Async Scheduler ===
 async def schedule_bot():
@@ -279,6 +296,7 @@ if __name__ == "__main__" and not os.environ.get("WERKZEUG_RUN_MAIN"):
     
     # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
+
 
 
 
