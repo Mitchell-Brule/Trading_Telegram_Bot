@@ -191,44 +191,78 @@ async def check_signals():
 
 # === Async Scheduler ===
 async def schedule_bot():
+    """
+    Runs 3 scans per day (06:00, 12:00, 18:00 America/Vancouver).
+    On startup it runs one immediate scan (remove that behavior below if you prefer
+    to wait until the next scheduled time).
+    """
     vancouver_tz = ZoneInfo("America/Vancouver")
-    last_run_date = None
-    last_run_hour = None
+    last_run_date = None   # date of the last completed run
+    last_run_hour = None   # hour of the last completed run
 
+    # --- Startup ---
     startup_msg = "✅ Bot started - Running 24/7 with 3 scans per day!"
     print(startup_msg)
-    await send_async_message(startup_msg)
+    try:
+        await send_async_message(startup_msg)
+    except Exception as e:
+        print(f"⚠️ Failed to send startup Telegram message: {e}")
+
+    # Optionally run one immediate scan at startup (comment out the next block if you prefer to wait)
+    try:
+        print("🕒 Running initial startup scan...")
+        await check_signals()
+        print("✅ Initial startup scan complete.")
+    except Exception as e:
+        print(f"⚠️ Error during initial startup scan: {e}")
+
+    scheduled_hours = [6, 12, 18]  # Vancouver local time hours to run
 
     while True:
-        now = datetime.datetime.now(vancouver_tz)
-        current_hour = now.hour
-        current_date = now.date()
+        try:
+            now = datetime.datetime.now(vancouver_tz)
+            current_hour = now.hour
+            current_date = now.date()
 
-        scheduled_hours = [6, 12, 18]  # 3 times per day
+            if current_hour in scheduled_hours:
+                # Run only once per scheduled hour per day
+                if last_run_hour != current_hour or last_run_date != current_date:
+                    # If the date changed, clear old alerts (keeps memory small)
+                    if last_run_date != current_date:
+                        clear_old_alerts()
 
-        if current_hour in scheduled_hours:
-            # Only run once per hour AND once per date
-            if last_run_hour != current_hour or last_run_date != current_date:
-                
-                # Clear stale alerts each day
-                if last_run_date != current_date:
-                    clear_old_alerts()
+                    run_msg = f"🕕 Scan started at {now.strftime('%Y-%m-%d %I:%M %p %Z')}..."
+                    print(run_msg)
+                    try:
+                        await send_async_message(run_msg)
+                    except Exception as e:
+                        print(f"⚠️ Failed to send run-start message: {e}")
 
-                run_msg = f"🕕 Scan started at {now.strftime('%I:%M %p')}..."
-                print(run_msg)
-                await send_async_message(run_msg)
+                    # Run the main scan
+                    try:
+                        await check_signals()
+                    except Exception as e:
+                        print(f"⚠️ Error in check_signals(): {e}")
 
-                await check_signals()  # <-- main scan
+                    complete_msg = f"✅ Scan done — next scheduled run pending."
+                    print(complete_msg)
+                    try:
+                        await send_async_message(complete_msg)
+                    except Exception as e:
+                        print(f"⚠️ Failed to send run-complete message: {e}")
 
-                complete_msg = "✅ Scan done — waiting for next scheduled run."
-                print(complete_msg)
-                await send_async_message(complete_msg)
+                    # persist last-run markers
+                    last_run_hour = current_hour
+                    last_run_date = current_date
 
-                last_run_hour = current_hour
-                last_run_date = current_date
+            # Wake up frequently to stay responsive; Render + UptimeRobot will keep process alive
+            await asyncio.sleep(60)
 
-        # wake up often to remain active on Render
-        await asyncio.sleep(60)  # check every minute
+        except Exception as loop_exc:
+            # Catch-all to ensure scheduler loop doesn't die
+            print(f"🔥 Scheduler loop error, continuing: {loop_exc}")
+            await asyncio.sleep(60)
+
 
     # --- Startup message ---
     startup_msg = "✅ Bot started - running ..."
@@ -275,6 +309,7 @@ if __name__ == "__main__" and not os.environ.get("WERKZEUG_RUN_MAIN"):
     
     # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
+
 
 
 
