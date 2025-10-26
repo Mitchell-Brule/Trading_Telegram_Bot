@@ -190,12 +190,43 @@ async def check_signals():
 # === Async Scheduler ===
 async def schedule_bot():
     vancouver_tz = ZoneInfo("America/Vancouver")
+    last_run_date = None
     last_run_hour = None
 
-    def log_run(message):
-        timestamp = datetime.datetime.now(vancouver_tz).strftime("%Y-%m-%d %I:%M:%S %p")
-        with open("run_log.txt", "a", encoding="utf-8") as f:
-            f.write(f"[{timestamp}] {message}\n")
+    startup_msg = "✅ Bot started - Running 24/7 with 3 scans per day!"
+    print(startup_msg)
+    await send_async_message(startup_msg)
+
+    while True:
+        now = datetime.datetime.now(vancouver_tz)
+        current_hour = now.hour
+        current_date = now.date()
+
+        scheduled_hours = [6, 12, 18]  # 3 times per day
+
+        if current_hour in scheduled_hours:
+            # Only run once per hour AND once per date
+            if last_run_hour != current_hour or last_run_date != current_date:
+                
+                # Clear stale alerts each day
+                if last_run_date != current_date:
+                    clear_old_alerts()
+
+                run_msg = f"🕕 Scan started at {now.strftime('%I:%M %p')}..."
+                print(run_msg)
+                await send_async_message(run_msg)
+
+                await check_signals()  # <-- main scan
+
+                complete_msg = "✅ Scan done — waiting for next scheduled run."
+                print(complete_msg)
+                await send_async_message(complete_msg)
+
+                last_run_hour = current_hour
+                last_run_date = current_date
+
+        # wake up often to remain active on Render
+        await asyncio.sleep(60)  # check every minute
 
     # --- Startup message ---
     startup_msg = "✅ Bot started - running ..."
@@ -242,6 +273,7 @@ if __name__ == "__main__" and not os.environ.get("WERKZEUG_RUN_MAIN"):
     
     # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
+
 
 
 
