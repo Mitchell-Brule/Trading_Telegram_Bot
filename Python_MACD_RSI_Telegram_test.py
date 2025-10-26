@@ -264,39 +264,9 @@ async def schedule_bot():
             await asyncio.sleep(60)
 
 
-    # --- Startup message ---
-    startup_msg = "✅ Bot started - running ..."
-    print(startup_msg)
-    await send_async_message(startup_msg)
-    log_run(startup_msg)
+ 
 
-    # --- First scan immediately ---
-    await check_signals()
-    log_run("✅ First scan complete.")
-
-    while True:
-        now = datetime.datetime.now(vancouver_tz)
-        current_hour = now.hour
-
-        if current_hour in [6, 12, 18] and current_hour != last_run_hour:
-            run_msg = f"🕕 Running scheduled scan at {now.strftime('%I:%M %p')}..."
-            print(run_msg)
-            await send_async_message(run_msg)
-            log_run(run_msg)
-
-            await check_signals()
-            last_run_hour = current_hour
-
-            next_run_hour = {6: 12, 12: 18, 18: 6}[current_hour]
-            hours_until_next = (next_run_hour - current_hour) % 24
-            next_str = (now + datetime.timedelta(hours=hours_until_next)).strftime("%I:%M %p")
-            labels = {6: "🕛 Next run at midday (12 PM)", 12: "🌆 Next run after market close (6 PM)", 18: "🌅 Next run next morning (6 AM)"}
-            complete_msg = f"✅ Run complete — {labels.get(current_hour, '')} ({next_str})"
-            print(complete_msg)
-            await send_async_message(complete_msg)
-            log_run(complete_msg)
-
-        await asyncio.sleep(900)
+ 
 
 # === Flask keepalive thread ===
 def run_flask():
@@ -309,6 +279,7 @@ if __name__ == "__main__" and not os.environ.get("WERKZEUG_RUN_MAIN"):
     
     # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
+
 
 
 
