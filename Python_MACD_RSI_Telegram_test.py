@@ -118,7 +118,7 @@ nltk.download('vader_lexicon', quiet=True)
 sia = SentimentIntensityAnalyzer()
 
 def clear_old_alerts():
-    """Keep only today's alerts so we don't resend or spam."""
+    """Keep only today's alerts so we don't resend."""
     global alerted_signals
     today = datetime.date.today().isoformat()
     alerted_signals = {a for a in alerted_signals if a.startswith(today)}
@@ -131,7 +131,6 @@ async def check_signals():
     clear_old_alerts()
     print("🔍 Checking for MACD crosses + RSI + trend filtering...")
 
-    # Download all tickers at once
     try:
         data_dict = yf.download(
             tickers,
@@ -156,42 +155,33 @@ async def check_signals():
             df["MA50"] = df["Close"].rolling(window=50).mean()
             df["MA200"] = df["Close"].rolling(window=200).mean()
 
-            # Extract latest values
             macd_prev, macd_now = df["MACD"].iloc[-2], df["MACD"].iloc[-1]
             signal_prev, signal_now = df["Signal"].iloc[-2], df["Signal"].iloc[-1]
             rsi_now = df["RSI"].iloc[-1]
             trend = "Uptrend" if df["MA50"].iloc[-1] > df["MA200"].iloc[-1] else "Downtrend"
 
-            # Detect MACD signals
             cross_up = macd_prev < signal_prev and macd_now > signal_now
             cross_down = macd_prev > signal_prev and macd_now < signal_now
 
-            # Determine signal direction based on holdings preference
             if (ticker in my_stocks and cross_down) or (ticker not in my_stocks and cross_up):
                 cross_type = "CROSS_DOWN" if cross_down else "CROSS_UP"
                 emoji = "🔴" if cross_down else "🔵"
 
-                # Create unique ID per candle
-                bar_date = df.index[-1].date()
-                signal_id = f"{bar_date}_{ticker}_{cross_type}"
+                # Use today's date for unique ID to prevent duplicates
+                today_str = datetime.date.today().isoformat()
+                signal_id = f"{today_str}_{ticker}_{cross_type}"
 
-                # ✅ Stop duplicates: Only alert once per day per ticker
                 if signal_id in alerted_signals:
-                    continue  # Skip if alerted already today
+                    continue  # Skip duplicates
 
-                # ✅ Only alert if new signal is from TODAY
-                if bar_date != datetime.date.today():
-                    continue
-
-                # ✅ Store signal so it won't repeat
                 alerted_signals.add(signal_id)
+                with open(ALERTS_FILE, "wb") as f:
+                    pickle.dump(alerted_signals, f)
 
-                # Build alert message
                 msg = f"{emoji} MACD {cross_type.replace('_', ' ')}: {ticker} RSI = {rsi_now:.2f} Trend: {trend}"
                 await send_async_message(msg)
                 print(f"📈 Alert sent: {msg}")
 
-                # Log alert for dashboard
                 signal_log.append({
                     "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "ticker": ticker,
@@ -200,24 +190,15 @@ async def check_signals():
                     "trend": trend
                 })
 
-                # Persist alerted signals to disk
-                with open(ALERTS_FILE, "wb") as f:
-                    pickle.dump(alerted_signals, f)
-
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
 
 # === Async Scheduler ===
 async def schedule_bot():
-    """
-    Runs 3 scans per day (06:00, 12:00, 18:00 America/Vancouver).
-    On startup it runs one immediate scan.
-    """
     vancouver_tz = ZoneInfo("America/Vancouver")
     last_run_date = None
     last_run_hour = None
 
-    # --- Startup check using atomic file ---
     def should_send_startup():
         today_str = str(datetime.date.today())
         try:
@@ -281,11 +262,13 @@ async def schedule_bot():
 
 # === Flask keepalive thread ===
 def run_flask():
-    app.run(host="0.0.0.0", port=5000, use_reloader=False)  # prevent duplicate starts
+    app.run(host="0.0.0.0", port=5000, use_reloader=False)
 
 if __name__ == "__main__":
     threading.Thread(target=run_flask, daemon=True).start()
     asyncio.run(schedule_bot())
+
+
 
 
 
