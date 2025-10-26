@@ -164,8 +164,10 @@ async def check_signals():
             if (ticker in my_stocks and cross_down) or (ticker not in my_stocks and cross_up):
                 cross_type = "CROSS_DOWN" if cross_down else "CROSS_UP"
                 emoji = "🔴" if cross_down else "🔵"
-                today = datetime.date.today().isoformat()
-                signal_id = f"{today}_{ticker}_{cross_type}"
+            # Use the latest bar date as the signal identifier so the same candle won't re-alert
+                bar_time = df.index[-1].strftime("%Y-%m-%d")
+                signal_id = f"{bar_time}_{ticker}_{cross_type}"
+
 
                 if signal_id not in alerted_signals:
                     alerted_signals.add(signal_id)
@@ -273,6 +275,7 @@ if __name__ == "__main__" and not os.environ.get("WERKZEUG_RUN_MAIN"):
     
     # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
+
 
 
 
