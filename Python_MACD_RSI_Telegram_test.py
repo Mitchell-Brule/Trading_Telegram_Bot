@@ -15,7 +15,7 @@ import threading
 import nest_asyncio
 
 nest_asyncio.apply()  # allows nested event loops
-
+STARTUP_FILE = "startup_sent.txt"
 # === Telegram setup ===
 bot_token = "7481105387:AAHsNaOFEuMuWan2E1Y44VMrWeiZcxBjCAw"
 chat_id = 7602575312
@@ -217,19 +217,36 @@ async def schedule_bot():
     last_run_date = None   # date of the last completed run
     last_run_hour = None   # hour of the last completed run
 
-    # --- Startup ---
-    startup_msg = "✅ Bot started - Running 24/7 with 3 scans per day!"
-    print(startup_msg)
-    try:
-        await send_async_message(startup_msg)
-    except Exception as e:
-        print(f"⚠️ Failed to send startup Telegram message: {e}")
+
+
+
+
+
+    # Only send startup message once per day
+    if not os.path.exists(STARTUP_FILE) or open(STARTUP_FILE).read() != str(datetime.date.today()):
+        startup_msg = "✅ Bot started - Running 24/7 with 3 scans per day!"
+        print(startup_msg)
+        try:
+            await send_async_message(startup_msg)
+        except Exception as e:
+            print(f"⚠️ Failed to send startup Telegram message: {e}")
+        with open(STARTUP_FILE, "w") as f:
+            f.write(str(datetime.date.today()))
+    else:
+        print("✅ Bot already started today, skipping Telegram startup message.")
+
+
+
+
+
+    
 
     # Optionally run one immediate scan at startup (comment out the next block if you prefer to wait)
-    try:
-        print("🕒 Running initial startup scan...")
-        await check_signals()
-        print("✅ Initial startup scan complete.")
+    if not os.path.exists(STARTUP_FILE) or open(STARTUP_FILE).read() != str(datetime.date.today()):
+    print("🕒 Running initial startup scan...")
+    await check_signals()
+    print("✅ Initial startup scan complete.")
+
     except Exception as e:
         print(f"⚠️ Error during initial startup scan: {e}")
 
@@ -296,6 +313,7 @@ if __name__ == "__main__" and not os.environ.get("WERKZEUG_RUN_MAIN"):
     
     # Run the async scheduler (starts scan immediately and then loops forever)
     asyncio.run(schedule_bot())
+
 
 
 
