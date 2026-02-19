@@ -31,33 +31,36 @@ LEADER_LOCK = "bot_leader.lock"   # prevents duplicate startup messages from con
 # === Telegram setup ===
 bot_token = "7481105387:AAHsNaOFEuMuWan2E1Y44VMrWeiZcxBjCAw"
 chat_id = 7602575312
-google_creds_raw = os.getenv("GOOGLE_CREDS_JSON")
-
 def update_google_sheet(data):
     try:
-        if not google_creds_raw:
-            print("⚠️ Google Creds not found in Environment Variables")
-            return
-            
-        creds_dict = json.loads(google_creds_raw)
+        # HARDCODED GOOGLE CREDENTIALS
+        creds_dict = {
+          "type": "service_account",
+          "project_id": "tradingbot-487906",
+          "private_key_id": "2c703ecc19b0953991ac3157d1ce5b90c447d42f",
+          "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDIf2Wwv/GBc6rP\nzmTJ+YPOfRDlvjD7/sINn7UK4oGfo+dWXKQ9PnBXSrj20BlN86vAQP9Ul3XKZS1q\QYd2cWScuXHv+6k9yNcxrG/Q9oqyUtl2b6/g3Nv3hAd0lg/WHqCzSNUrQjfZLOZK\nS6hxIR4lLAI41nwGxJnQJGgSKD5yx6Lk3Pyspya5+HY/6zlv36CdHYIvxTM127yP\nCHx2QeVCkli8wuO8VewNwYUkv+QlKP2hJQiUS7YH3dRL299MbGArZJrn1neBsr7O\ne9JOYIUDY2ecmXXRp3iQ2DIKivv5NgrswZNQotecSwni72QCa1BZuB5DRLfdd8xE\nUrnDxmjVAgMBAAECggEAGQLnfSKcroDu5IiDQzzop+grJPXSZ4Uy0P9E1uxFrlQE\nhl39MRSqcAFGzKdOGM7WdJ/HGlbgn1R602AEVY60teZeY8kZpjb5PV2c/0zaJX+3\nWBJ7tsnmeNyUD4Ouyw+8DVF/IivbCrESs173ztEKUSnJxyxegXuiEniQMP+rNqce\n8l8xdB5v4Rk8MZ7lf0O52CiuCKyMDcu9L678aHSWdrWHBtzqJZL7cyFeJx2sPXXu\nCphsCQlV1B2+Ya/2MMSGqZSntYqVhjaB8Xv4Ns7PZAPtmdWE6LlDhOdD+y7HAU4Y\naKWZp/wdalKYP0QkAZ72BC5ZhiKDCQMDsPkxU/I3kQKBgQD+Aqn1cNTxgbGnGBGd\nqZkzDjJuO89Gva0EeH0ue6fvOKeuHXkExsQlzuRlC6stvdGaizHgMUmLsEkEQbL\nfjy12AOOGwgaUn9HKeSKxSnbfNWmzNfHk2iybL9frmOhd4Wo85gkSQaQUtG6XAZj\nmd+BNsPGI97ZFWXNDLMLhUq5aQKBgQDKEW5DLDsLSl85Z8najGLEXDheDWLw+YF5\nS+/GxUvuYmGX145lTbqlKZ/Cm3Q5okM0NzitP6JXQFFTY4NOnq1vvFCeAhuAbwAb\n6VtvF2PHM0A/6zLeqUSTMHzu50kGXaT+Y+Bi8LJLcB0nc1vRbjsAXzR7jcqBT6+G\n0aQGEqi6jQKBgQCoz9ZqYxFya7JIjYtvqwagqMT482oz3w6kP9o+ja9UA/FMcOUQ\rc3n6cpSBvw6FuMhrgCSmjbsGFiOAq7UYNIyPByovbhV3gvunJ3hyAT4dO99ClhB\nr+r94Z4SFdDrB4cR8MplGw88rX3q76vjV+kdc+sKbN52wWzFqLH5bx1pOQKBgEcU\n5qK+lm6cVO8OsZUtuTi18CY1s05tlrwimFBl6xYKiaYub6r3MucSw15j7PixOc7O\ndiOLtQHYYENjSDeJ3hzmM73BpAcEBRfMeRuVMMZMIxfZFuX4yWS1s90egzO4EWhj\nnfVwEmgzIi5UiEId8qdo1j94W3otm+NjL73rJmupAoGBAIfPlE9efExi+p7/q4mT\n06+W/zx7Hjz/yjrBpQhKsTIOI2xyEiNL9hEkD0tkKqooFojqcc3qdDoZLkxV0Ck4\nhJOyyOEYgSK9d+f2znUfk+tCyb6gtR9Srizb5zxaG1GRBbXVd1XKjFruz2v64m75\nvlEW3ZGlYefs8FO9Gcyr1zLT\n-----END PRIVATE KEY-----\n",
+          "client_email": "tradinghistory@tradingbot-487906.iam.gserviceaccount.com",
+          "client_id": "117364562927421221141",
+          "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+          "token_uri": "https://oauth2.googleapis.com/token",
+          "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+          "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/tradinghistory%40tradingbot-487906.iam.gserviceaccount.com",
+          "universe_domain": "googleapis.com"
+        }
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
-        
-        # Opens the sheet you just created
         sheet = client.open("Trading_Bot_History").sheet1
-        
-        # Append the row
         row = [data['Date'], data['Ticker'], data['Buy_Price'], data['Target_Price'], data['Horizon'], data['Prob']]
         sheet.append_row(row)
         print(f"✅ Sheet Updated for {data['Ticker']}")
     except Exception as e:
         print(f"⚠️ Sheets Error: {e}")
+
 bot = Bot(
     token=bot_token,
     request=HTTPXRequest(connect_timeout=10, read_timeout=20, connection_pool_size=10)
 )
-
 # === Helper: leader election so only one process announces startup ===
 def claim_leadership():
     """
@@ -578,6 +581,17 @@ def run_flask():
     app.run(host="0.0.0.0", port=5000, use_reloader=False)
 
 if __name__ == "__main__":
+    # 🧪 TEST EXCEL IMMEDIATELY ON STARTUP
+    print("🧪 Running Excel Hardcode Test...")
+    update_google_sheet({
+        'Date': datetime.datetime.now().strftime("%Y-%m-%d"), 
+        'Ticker': 'HARDCODE_TEST', 
+        'Buy_Price': 999.0, 
+        'Target_Price': 1000.0, 
+        'Horizon': 'Now', 
+        'Prob': '100%'
+    })
+
     # Start flask in a daemon thread and then scheduler in main loop
     threading.Thread(target=run_flask, daemon=True).start()
     try:
@@ -589,6 +603,22 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+        
+"""        
+if __name__ == "__main__":
+    # Start flask in a daemon thread and then scheduler in main loop
+    threading.Thread(target=run_flask, daemon=True).start()
+    try:
+        asyncio.run(schedule_bot())
+    except KeyboardInterrupt:
+        print("Exiting on keyboard interrupt.")
+        try:
+            release_leadership()
+        except Exception:
+            pass
+        sys.exit(0)
+
+"""
 
 
 
