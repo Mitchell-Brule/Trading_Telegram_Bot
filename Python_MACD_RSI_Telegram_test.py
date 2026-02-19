@@ -469,16 +469,21 @@ async def check_signals():
 # ... (after your existing signal_log.append code) ...
             
             # === ADD THIS HERE (Inside the 'for ticker in tickers' loop) ===
+            signal_log.append({
+                "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                ...
+            })
+
+            # This line must start at the exact same column as 'signal_log.append'
             log_payload = {
                 'Date': datetime.datetime.now().strftime("%Y-%m-%d"),
                 'Ticker': ticker,
                 'Buy_Price': round(float(last["Close"]), 2),
                 'Target_Price': round(float(last["Close"]) * 1.05, 2),
                 'Horizon': horizon,
-                 'Prob': f"{probability}%"
+                'Prob': f"{probability}%"
             }
             update_google_sheet(log_payload)
-
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
 
@@ -577,6 +582,7 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+
 
 
 
