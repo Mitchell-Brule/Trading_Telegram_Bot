@@ -29,7 +29,7 @@ ALERTS_FILE = "alerted_signals.pkl"
 LEADER_LOCK = "bot_leader.lock"   # prevents duplicate startup messages from concurrent processes
 
 # === Telegram setup ===
-bot_token = os.getenv("TELEGRAM_TOKEN")
+bot_token = "7481105387:AAHsNaOFEuMuWan2E1Y44VMrWeiZcxBjCAw"
 chat_id = 7602575312
 google_creds_raw = os.getenv("GOOGLE_CREDS_JSON")
 
@@ -577,6 +577,7 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+
 
 
 
