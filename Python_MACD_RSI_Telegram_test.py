@@ -469,18 +469,18 @@ async def check_signals():
 # ... (after your existing signal_log.append code) ...
             
             # === ADD THIS HERE (Inside the 'for ticker in tickers' loop) ===
-                log_payload = {
-                    'Date': datetime.datetime.now().strftime("%Y-%m-%d"),
-                    'Ticker': ticker,
-                    'Buy_Price': round(float(last["Close"]), 2),
-                    'Target_Price': round(float(last["Close"]) * 1.05, 2),
-                    'Horizon': horizon,
-                    'Prob': f"{probability}%"
+            log_payload = {
+                'Date': datetime.datetime.now().strftime("%Y-%m-%d"),
+                'Ticker': ticker,
+                'Buy_Price': round(float(last["Close"]), 2),
+                'Target_Price': round(float(last["Close"]) * 1.05, 2),
+                'Horizon': horizon,
+                 'Prob': f"{probability}%"
             }
-                update_google_sheet(log_payload)
+            update_google_sheet(log_payload)
 
-            except Exception as e:
-                print(f"⚠️ Error processing {ticker}: {e}")
+        except Exception as e:
+            print(f"⚠️ Error processing {ticker}: {e}")
 
 # === Scheduler with single-startup announcement (leader) ===
 async def schedule_bot():
@@ -577,6 +577,7 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+
 
 
 
