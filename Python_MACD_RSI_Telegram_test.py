@@ -475,6 +475,7 @@ async def check_signals():
             })
 
             # This line must start at the exact same column as 'signal_log.append'
+# Prepare the data for the sheet
             log_payload = {
                 'Date': datetime.datetime.now().strftime("%Y-%m-%d"),
                 'Ticker': ticker,
@@ -582,6 +583,7 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+
 
 
 
