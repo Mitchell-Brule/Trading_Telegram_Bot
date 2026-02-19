@@ -482,6 +482,18 @@ async def check_signals():
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
 
+# === ADD THESE TEST LINES HERE ===
+test_data = {
+    'Date': '2026-02-19', 
+    'Ticker': 'CONNECTION_TEST', 
+    'Buy_Price': 1.0, 
+    'Target_Price': 2.0, 
+    'Horizon': 'Test', 
+    'Prob': '100%'
+}
+update_google_sheet(test_data)
+# =================================
+
 # === Scheduler with single-startup announcement (leader) ===
 async def schedule_bot():
     vancouver_tz = ZoneInfo("America/Vancouver")
@@ -577,6 +589,7 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+
 
 
 
