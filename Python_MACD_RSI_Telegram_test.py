@@ -16,13 +16,11 @@ import nest_asyncio
 import pandas as pd
 import numpy as np
 import sys
-
+import json
 import gspread
 from google.oauth2.service_account import Credentials
 
-# === Google Sheets Setup ===
-# In a real scenario, you'd store these in Render Environment Variables
-SHEET_NAME = "Trading_Bot_History"
+
 
 nest_asyncio.apply()  # allows nested event loops
 
@@ -31,9 +29,30 @@ ALERTS_FILE = "alerted_signals.pkl"
 LEADER_LOCK = "bot_leader.lock"   # prevents duplicate startup messages from concurrent processes
 
 # === Telegram setup ===
-bot_token = "7481105387:AAHsNaOFEuMuWan2E1Y44VMrWeiZcxBjCAw"
+bot_token = os.getenv("TELEGRAM_TOKEN")
 chat_id = 7602575312
+google_creds_raw = os.getenv("GOOGLE_CREDS_JSON")
 
+def update_google_sheet(data):
+    try:
+        if not google_creds_raw:
+            print("⚠️ Google Creds not found in Environment Variables")
+            return
+            
+        creds_dict = json.loads(google_creds_raw)
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        client = gspread.authorize(creds)
+        
+        # Opens the sheet you just created
+        sheet = client.open("Trading_Bot_History").sheet1
+        
+        # Append the row
+        row = [data['Date'], data['Ticker'], data['Buy_Price'], data['Target_Price'], data['Horizon'], data['Prob']]
+        sheet.append_row(row)
+        print(f"✅ Sheet Updated for {data['Ticker']}")
+    except Exception as e:
+        print(f"⚠️ Sheets Error: {e}")
 bot = Bot(
     token=bot_token,
     request=HTTPXRequest(connect_timeout=10, read_timeout=20, connection_pool_size=10)
@@ -449,44 +468,16 @@ async def check_signals():
 
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
-
-def update_google_sheet(data):
-    try:
-        # Define the scope
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        
-        # Load credentials (on Render, you'd point to a file or use a secret)
-        creds = Credentials.from_service_account_file("google_creds.json", scopes=scope)
-        client = gspread.authorize(creds)
-        
-        # Open the sheet and append the row
-        sheet = client.open(SHEET_NAME).sheet1
-        
-        # Format the data for a row: [Date, Ticker, Buy Price, Sell Target, Horizon, Prob]
-        row = [
-            data['Date'], data['Ticker'], data['Buy_Price'], 
-            data['Target_Sell_Price'], data['Hold_Horizon'], data['Probability']
-        ]
-        sheet.append_row(row)
-        print(f"✅ Logged {data['Ticker']} to Google Sheets.")
-    except Exception as e:
-        print(f"⚠️ Google Sheets Error: {e}")
-
-# === Add this inside your check_signals() loop after the Telegram alert ===
-            # Calculate targets
-            buy_price = float(last["Close"])
-            target_sell = round(buy_price * 1.05, 2) 
-
-            trade_data = {
+# Send to Google Sheets
+            log_payload = {
                 'Date': datetime.datetime.now().strftime("%Y-%m-%d"),
                 'Ticker': ticker,
-                'Buy_Price': round(buy_price, 2),
-                'Target_Sell_Price': target_sell,
-                'Hold_Horizon': horizon,
-                'Probability': f"{probability}%"
+                'Buy_Price': round(float(last["Close"]), 2),
+                'Target_Price': round(float(last["Close"]) * 1.05, 2),
+                'Horizon': horizon,
+                'Prob': f"{probability}%"
             }
-            
-            update_google_sheet(trade_data)
+            update_google_sheet(log_payload)
 
 # === Scheduler with single-startup announcement (leader) ===
 async def schedule_bot():
@@ -583,6 +574,7 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+
 
 
 
