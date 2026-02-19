@@ -7,3 +7,5 @@ nest_asyncio
 pytz
 Flask
 pandas
+gspread
+google-auth
