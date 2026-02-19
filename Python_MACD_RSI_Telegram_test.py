@@ -468,7 +468,9 @@ async def check_signals():
 
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
-# Send to Google Sheets
+# ... (after your existing signal_log.append code) ...
+            
+            # === ADD THIS HERE (Inside the 'for ticker in tickers' loop) ===
             log_payload = {
                 'Date': datetime.datetime.now().strftime("%Y-%m-%d"),
                 'Ticker': ticker,
@@ -478,6 +480,9 @@ async def check_signals():
                 'Prob': f"{probability}%"
             }
             update_google_sheet(log_payload)
+
+        except Exception as e:
+            print(f"⚠️ Error processing {ticker}: {e}")
 
 # === Scheduler with single-startup announcement (leader) ===
 async def schedule_bot():
@@ -574,6 +579,7 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+
 
 
 
