@@ -34,33 +34,7 @@ chat_id = 7602575312
 
 def update_google_sheet(data_row):
     try:
-        # Use the explicit scope required for both Drive and Sheets
-        scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-        
-        # Make sure this part1/part2 logic we did earlier is inside or accessible here
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-        client = gspread.authorize(creds)
-        
-        # Open the sheet
-        sheet_url = "https://docs.google.com/spreadsheets/d/1BEwe7YaudsSCNxaYsd12ZrM2eTbLqCJdsJFvAKw43yU/edit#gid=0"
-        sheet = client.open_by_url(sheet_url).sheet1
-        
-        # Convert dictionary to list for appending
-        row = [data_row.get(col, "") for col in ['Date', 'Ticker', 'Buy_Price', 'Target_Price', 'Horizon', 'Prob']]
-        
-        sheet.append_row(row)
-        print(f"✅ SUCCESS: Wrote {data_row['Ticker']} to Google Sheets.")
-        
-    except gspread.exceptions.APIError as e:
-        print(f"❌ GOOGLE API ERROR: {e}")
-    except gspread.exceptions.SpreadsheetNotFound:
-        print("❌ ERROR: Spreadsheet not found. Check the URL and ensure the Service Account email is an 'Editor'.")
-    except Exception as e:
-        print(f"❌ UNKNOWN ERROR: {e}")
-"""
-def update_google_sheet(data):
-    try:
-        # HARDCODED GOOGLE CREDENTIALS
+        # 1. FIXED: Correct creds_dict with clean key formatting
         creds_dict = {
           "type": "service_account",
           "project_id": "tradingbot-487906",
@@ -74,17 +48,31 @@ def update_google_sheet(data):
           "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/tradinghistory%40tradingbot-487906.iam.gserviceaccount.com",
           "universe_domain": "googleapis.com"
         }
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+
+        # 2. FIXED: Use Credentials instead of ServiceAccountCredentials
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
-        sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1BEwe7YaudsSCNxaYsd12ZrM2eTbLqCJdsJFvAKw43yU/edit#gid=0").sheet1
-        row = [data['Date'], data['Ticker'], data['Buy_Price'], data['Target_Price'], data['Horizon'], data['Prob']]
+        
+        # 3. Open the sheet
+        sheet_url = "https://docs.google.com/spreadsheets/d/1BEwe7YaudsSCNxaYsd12ZrM2eTbLqCJdsJFvAKw43yU/edit#gid=0"
+        sheet = client.open_by_url(sheet_url).sheet1
+        
+        # 4. Data mapping
+        row = [
+            data_row.get('Date', ''), 
+            data_row.get('Ticker', ''), 
+            data_row.get('Buy_Price', ''), 
+            data_row.get('Target_Price', ''), 
+            data_row.get('Horizon', ''), 
+            data_row.get('Prob', '')
+        ]
+        
         sheet.append_row(row)
-        print(f"✅ Sheet Updated for {data['Ticker']}")
+        print(f"✅ SUCCESS: Wrote {data_row['Ticker']} to Google Sheets.")
+        
     except Exception as e:
         print(f"⚠️ Sheets Error: {e}")
-        """
-
 
 bot = Bot(
     token=bot_token,
@@ -636,6 +624,7 @@ if __name__ == "__main__":
 
 
         
+
 
 
 
