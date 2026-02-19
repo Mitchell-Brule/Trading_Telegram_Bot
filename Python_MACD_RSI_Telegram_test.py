@@ -454,6 +454,7 @@ async def check_signals():
             await send_async_message(msg)
             print(f"📈 Alert sent: {ticker} | {probability}% | {horizon}")
 
+            # ... (previous code) ...
             signal_log.append({
                 "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "ticker": ticker,
@@ -467,7 +468,7 @@ async def check_signals():
                 "trend": trend
             })
 
-            # Prepare and send the data to Google Sheets
+            # THE FIX: Ensure these start at the exact same column as 'signal_log.append'
             log_payload = {
                 'Date': datetime.datetime.now().strftime("%Y-%m-%d"),
                 'Ticker': ticker,
@@ -576,6 +577,7 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+
 
 
 
