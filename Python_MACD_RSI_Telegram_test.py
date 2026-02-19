@@ -17,6 +17,13 @@ import pandas as pd
 import numpy as np
 import sys
 
+import gspread
+from google.oauth2.service_account import Credentials
+
+# === Google Sheets Setup ===
+# In a real scenario, you'd store these in Render Environment Variables
+SHEET_NAME = "Trading_Bot_History"
+
 nest_asyncio.apply()  # allows nested event loops
 
 STARTUP_FILE = "startup_sent.txt"
@@ -443,6 +450,44 @@ async def check_signals():
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
 
+def update_google_sheet(data):
+    try:
+        # Define the scope
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        
+        # Load credentials (on Render, you'd point to a file or use a secret)
+        creds = Credentials.from_service_account_file("google_creds.json", scopes=scope)
+        client = gspread.authorize(creds)
+        
+        # Open the sheet and append the row
+        sheet = client.open(SHEET_NAME).sheet1
+        
+        # Format the data for a row: [Date, Ticker, Buy Price, Sell Target, Horizon, Prob]
+        row = [
+            data['Date'], data['Ticker'], data['Buy_Price'], 
+            data['Target_Sell_Price'], data['Hold_Horizon'], data['Probability']
+        ]
+        sheet.append_row(row)
+        print(f"✅ Logged {data['Ticker']} to Google Sheets.")
+    except Exception as e:
+        print(f"⚠️ Google Sheets Error: {e}")
+
+# === Add this inside your check_signals() loop after the Telegram alert ===
+            # Calculate targets
+            buy_price = float(last["Close"])
+            target_sell = round(buy_price * 1.05, 2) 
+
+            trade_data = {
+                'Date': datetime.datetime.now().strftime("%Y-%m-%d"),
+                'Ticker': ticker,
+                'Buy_Price': round(buy_price, 2),
+                'Target_Sell_Price': target_sell,
+                'Hold_Horizon': horizon,
+                'Probability': f"{probability}%"
+            }
+            
+            update_google_sheet(trade_data)
+
 # === Scheduler with single-startup announcement (leader) ===
 async def schedule_bot():
     vancouver_tz = ZoneInfo("America/Vancouver")
@@ -538,6 +583,7 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
+
 
 
 
