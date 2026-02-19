@@ -31,6 +31,33 @@ LEADER_LOCK = "bot_leader.lock"   # prevents duplicate startup messages from con
 # === Telegram setup ===
 bot_token = "7481105387:AAHsNaOFEuMuWan2E1Y44VMrWeiZcxBjCAw"
 chat_id = 7602575312
+
+def update_google_sheet(data_row):
+    try:
+        # Use the explicit scope required for both Drive and Sheets
+        scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+        
+        # Make sure this part1/part2 logic we did earlier is inside or accessible here
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(creds)
+        
+        # Open the sheet
+        sheet_url = "https://docs.google.com/spreadsheets/d/1BEwe7YaudsSCNxaYsd12ZrM2eTbLqCJdsJFvAKw43yU/edit#gid=0"
+        sheet = client.open_by_url(sheet_url).sheet1
+        
+        # Convert dictionary to list for appending
+        row = [data_row.get(col, "") for col in ['Date', 'Ticker', 'Buy_Price', 'Target_Price', 'Horizon', 'Prob']]
+        
+        sheet.append_row(row)
+        print(f"✅ SUCCESS: Wrote {data_row['Ticker']} to Google Sheets.")
+        
+    except gspread.exceptions.APIError as e:
+        print(f"❌ GOOGLE API ERROR: {e}")
+    except gspread.exceptions.SpreadsheetNotFound:
+        print("❌ ERROR: Spreadsheet not found. Check the URL and ensure the Service Account email is an 'Editor'.")
+    except Exception as e:
+        print(f"❌ UNKNOWN ERROR: {e}")
+"""
 def update_google_sheet(data):
     try:
         # HARDCODED GOOGLE CREDENTIALS
@@ -56,6 +83,8 @@ def update_google_sheet(data):
         print(f"✅ Sheet Updated for {data['Ticker']}")
     except Exception as e:
         print(f"⚠️ Sheets Error: {e}")
+        """
+
 
 bot = Bot(
     token=bot_token,
@@ -607,6 +636,7 @@ if __name__ == "__main__":
 
 
         
+
 
 
 
