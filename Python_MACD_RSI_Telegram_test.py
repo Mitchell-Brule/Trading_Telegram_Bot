@@ -50,7 +50,7 @@ def update_google_sheet(data):
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
-        sheet = client.open("Trading_Bot_History").sheet1
+        sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1BEwe7YaudsSCNxaYsd12ZrM2eTbLqCJdsJFvAKw43yU/edit#gid=0").sheet1
         row = [data['Date'], data['Ticker'], data['Buy_Price'], data['Target_Price'], data['Horizon'], data['Prob']]
         sheet.append_row(row)
         print(f"✅ Sheet Updated for {data['Ticker']}")
@@ -607,6 +607,7 @@ if __name__ == "__main__":
 
 
         
+
 
 
 
