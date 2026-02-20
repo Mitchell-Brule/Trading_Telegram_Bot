@@ -34,45 +34,41 @@ chat_id = 7602575312
 
 def update_google_sheet(data_row):
     try:
-        # 1. We define the key and immediately clean it to fix "InvalidPadding"
-        raw_key = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDIf2Wwv/GBc6rP\nzmTJ+YPOfRDlvjD7/sINn7UK4oGfo+dWXKQ9PnBXSrj20BlN86vAQP9Ul3XKZS1q\nQYd2cWScuXHv+6k9yNcxrG/Q9oqyUtl2b6/g3Nv3hAd0lg/WHqCzSNUrQjfZLOZK\nS6hxIR4lLAI41nwGxJnQJGgSKD5yx6Lk3Pyspya5+HY/6zlv36CdHYIvxTM127yP\nCHx2QeVCkli8wuO8VewNwYUkv+QlKP2hJQiUS7YH3dRL299MbGArZJrn1neBsr7O\ne9JOYIUDY2ecmXXRp3iQ2DIKivv5NgrswZNQotecSwni72QCa1BZuB5DRLfdd8xE\nUrnDxmjVAgMBAAECggEAGQLnfSKcroDu5IiDQzzop+grJPXSZ4Uy0P9E1uxFrlQE\nhl39MRSqcAFGzKdOGM7WdJ/HGlbgn1R602AEVY60teZeY8kZpjb5PV2c/0zaJX+3\nWBJ7tsnmeNyUD4Ouyw+8DVF/IivbCrESs173ztEKUSnJxyxegXuiEniQMP+rNqce\n8l8xdB5v4Rk8MZ7lf0O52CiuCKyMDcu9L678aHSWdrWHBtzqJZL7cyFeJx2sPXXu\nCphsCQlV1B2+Ya/2MMSGqZSntYqVhjaB8Xv4Ns7PZAPtmdWE6LlDhOdD+y7HAU4Y\naKWZp/wdalKYP0QkAZ72BC5ZhiKDCQMDsPkxU/I3kQKBgQD+Aqn1cNTxgbGnGBGd\nqZkzDjJuO89Gva0EeH0ue6fvOKeuHXkExsQlzuRlC6stvdGaizHgMUmLsEkEQbL\nfjy12AOOGwgaUn9HKeSKxSnbfNWmzNfHk2iybL9frmOhd4Wo85gkSQaQUtG6XAZj\nmd+BNsPGI97ZFWXNDLMLhUq5aQKBgQDKEW5DLDsLSl85Z8najGLEXDheDWLw+YF5\nS+/GxUvuYmGX145lTbqlKZ/Cm3Q5okM0NzitP6JXQFFTY4NOnq1vvFCeAhuAbwAb\n6VtvF2PHM0A/6zLeqUSTMHzu50kGXaT+Y+Bi8LJLcB0nc1vRbjsAXzR7jcqBT6+G\n0aQGEqi6jQKBgQCoz9ZqYxFya7JIjYtvqwagqMT482oz3w6kP9o+ja9UA/FMcOUQ\rc3n6cpSBvw6FuMhrgCSmjbsGFiOAq7UYNIyPByovbhV3gvunJ3hyAT4dO99ClhB\nr+r94Z4SFdDrB4cR8MplGw88rX3q76vjV+kdc+sKbN52wWzFqLH5bx1pOQKBgEcU\n5qK+lm6cVO8OsZUtuTi18CY1s05tlrwimFBl6xYKiaYub6r3MucSw15j7PixOc7O\ndiOLtQHYYENjSDeJ3hzmM73BpAcEBRfMeRuVMMZMIxfZFuX4yWS1s90egzO4EWhj\nnfVwEmgzIi5UiEId8qdo1j94W3otm+NjL73rJmupAoGBAIfPlE9efExi+p7/q4mT\n06+W/zx7Hjz/yjrBpQhKsTIOI2xyEiNL9hEkD0tkKqooFojqcc3qdDoZLkxV0Ck4\nhJOyyOEYgSK9d+f2znUfk+tCyb6gtR9Srizb5zxaG1GRBbXVd1XKjFruz2v64m75\nvlEW3ZGlYefs8FO9Gcyr1zLT\n-----END PRIVATE KEY-----\n"
-        
-        # This replaces literal '\n' text with actual newlines
-        formatted_key = raw_key.replace('\\n', '\n')
+        import base64
 
-        creds_dict = {
-          "type": "service_account",
-          "project_id": "tradingbot-487906",
-          "private_key_id": "2c703ecc19b0953991ac3157d1ce5b90c447d42f",
-          "private_key": formatted_key,
-          "client_email": "tradinghistory@tradingbot-487906.iam.gserviceaccount.com",
-          "token_uri": "https://oauth2.googleapis.com/token",
-        }
+        encoded = os.environ.get("GOOGLE_CREDENTIALS_BASE64")
+        if not encoded:
+            raise ValueError("GOOGLE_CREDENTIALS_BASE64 not set")
 
-        # 2. Use the standard scope
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        decoded = base64.b64decode(encoded)
+        creds_dict = json.loads(decoded)
+
+        scope = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
-        
-        # 3. Open the sheet
+
         sheet_url = "https://docs.google.com/spreadsheets/d/1BEwe7YaudsSCNxaYsd12ZrM2eTbLqCJdsJFvAKw43yU/edit#gid=0"
         sheet = client.open_by_url(sheet_url).sheet1
-        
-        # 4. Data mapping
+
         row = [
-            data_row.get('Date', ''), 
-            data_row.get('Ticker', ''), 
-            data_row.get('Buy_Price', ''), 
-            data_row.get('Target_Price', ''), 
-            data_row.get('Horizon', ''), 
+            data_row.get('Date', ''),
+            data_row.get('Ticker', ''),
+            data_row.get('Buy_Price', ''),
+            data_row.get('Target_Price', ''),
+            data_row.get('Horizon', ''),
             data_row.get('Prob', '')
         ]
-        
+
         sheet.append_row(row)
-        print(f"✅ SUCCESS: Wrote {data_row['Ticker']} to Google Sheets.")
-        
+        print(f"SUCCESS: Wrote {data_row['Ticker']} to Google Sheets.")
+
     except Exception as e:
-        print(f"⚠️ Sheets Error: {e}")
+        print(f"Sheets Error: {e}")
+
 
 bot = Bot(
     token=bot_token,
@@ -624,6 +620,7 @@ if __name__ == "__main__":
 
 
         
+
 
 
 
