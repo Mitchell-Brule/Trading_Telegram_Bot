@@ -498,17 +498,7 @@ async def check_signals():
         except Exception as e:
             print(f"⚠️ Error processing {ticker}: {e}")
 
-# === ADD THESE TEST LINES HERE ===
-test_data = {
-    'Date': '2026-02-19', 
-    'Ticker': 'CONNECTION_TEST', 
-    'Buy_Price': 1.0, 
-    'Target_Price': 2.0, 
-    'Horizon': 'Test', 
-    'Prob': '100%'
-}
-update_google_sheet(test_data)
-# =================================
+
 
 # === Scheduler with single-startup announcement (leader) ===
 async def schedule_bot():
@@ -594,16 +584,6 @@ def run_flask():
     app.run(host="0.0.0.0", port=5000, use_reloader=False)
 
 if __name__ == "__main__":
-    # 🧪 TEST EXCEL IMMEDIATELY ON STARTUP
-    print("🧪 Running Excel Hardcode Test...")
-    update_google_sheet({
-        'Date': datetime.datetime.now().strftime("%Y-%m-%d"), 
-        'Ticker': 'HARDCODE_TEST', 
-        'Buy_Price': 999.0, 
-        'Target_Price': 1000.0, 
-        'Horizon': 'Now', 
-        'Prob': '100%'
-    })
 
     # Start flask in a daemon thread and then scheduler in main loop
     threading.Thread(target=run_flask, daemon=True).start()
@@ -620,6 +600,7 @@ if __name__ == "__main__":
 
 
         
+
 
 
 
