@@ -27,8 +27,8 @@ ALERTS_FILE = "alerted_signals.pkl"
 LEADER_LOCK = "bot_leader.lock"   # prevents duplicate startup messages from concurrent processes
 
 # === Telegram setup ===
-bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
-chat_id = int(os.environ["TELEGRAM_CHAT_ID"])
+bot_token = "YOUR_BOT_TOKEN_REDACTED"
+chat_id = YOUR_CHAT_ID_REDACTED
 
 def update_google_sheet(data_row):
     try:
@@ -509,29 +509,3 @@ if __name__ == "__main__":
             release_leadership()
         except: pass
         sys.exit(0)
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

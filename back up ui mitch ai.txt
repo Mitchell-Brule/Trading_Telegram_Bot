@@ -1,0 +1,284 @@
+back up ui "<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Would Mitch Do?</title>
+    <style>
+        :root {
+            --primary-color: #ffffff;
+            --secondary-color: #e0e0e0;
+            --accent-color: #4CAF50; /* A nice green for user messages/buttons */
+            --bg-overlay: rgba(0, 0, 0, 0.6); /* Dark overlay for readability */
+            --chat-bg: rgba(255, 255, 255, 0.1); /* Glassmorphism effect */
+            --user-msg-bg: #2e7d32;
+            --ai-msg-bg: #37474f;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            /* Use the provided image as a fixed cover background */
+            background: url('MitchGod-Background.png.png') no-repeat center center fixed;
+            background-size: cover;
+            color: var(--primary-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            backdrop-filter: blur(5px); /* Optional: blurs the background slightly */
+        }
+
+        /* Main Title Area */
+        #main-title {
+            text-align: center;
+            padding: 30px 20px 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        #main-title h1 {
+            margin: 0;
+            font-size: 3em;
+            letter-spacing: 2px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        /* Mitch's Tip Section */
+        #mitch-tip-container {
+            background-color: var(--chat-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px 25px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #mitch-tip-icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+
+        #mitch-tip-content {
+            font-style: italic;
+            color: var(--secondary-color);
+        }
+
+        /* Main Chat Container */
+        #chat-container {
+            width: 90%;
+            max-width: 800px;
+            flex-grow: 1; /* Allows chat box to fill available space */
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-overlay);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Header inside chat container (for Clear button) */
+        #chat-header {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: flex-end;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .clear-btn {
+            background-color: transparent;
+            border: 1px solid var(--secondary-color);
+            color: var(--secondary-color);
+            padding: 6px 12px;
+            font-size: 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .clear-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        /* Chat Box Area */
+        #chat-box {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+        }
+
+        /* Scrollbar Styling */
+        #chat-box::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-box::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #chat-box::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        /* Message Bubbles */
+        .message {
+            max-width: 80%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            line-height: 1.5;
+            position: relative;
+            word-wrap: break-word;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .user-msg {
+            background-color: var(--user-msg-bg);
+            color: var(--primary-color);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-msg {
+            background-color: var(--ai-msg-bg);
+            color: var(--secondary-color);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Input Area */
+        #input-area {
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            gap: 15px;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        input {
+            flex-grow: 1;
+            padding: 14px 20px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: var(--primary-color);
+            border-radius: 25px;
+            outline: none;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        input:focus {
+            border-color: var(--accent-color);
+        }
+
+        button#send-btn {
+            padding: 14px 30px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background-color 0.3s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        button#send-btn:hover {
+            background-color: #43a047;
+        }
+        button#send-btn:active {
+            transform: scale(0.98);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="main-title">
+        <h1>WHAT WOULD MITCH DO?</h1>
+    </div>
+
+    <div id="mitch-tip-container">
+        <div id="mitch-tip-icon">💡</div>
+        <div id="mitch-tip-content">
+            "Always bet on yourself. The asymmetric upside is worth the short-term discomfort."
+        </div>
+    </div>
+
+    <div id="chat-container">
+        <div id="chat-header">
+            <button class="clear-btn" onclick="clearMemory()">Clear Chat</button>
+        </div>
+        
+        <div id="chat-box">
+            <div class="message ai-msg">System online. Memory active. I am ready to ruthlessly reject your comfortable career choices. What's the play?</div>
+        </div>
+
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Ask Away..." onkeypress="handleEnter(event)">
+            <button id="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+<script>
+    async function sendMessage() {
+        const inputField = document.getElementById("user-input");
+        const chatBox = document.getElementById("chat-box");
+        const text = inputField.value.trim();
+        
+        if (!text) return;
+
+        chatBox.innerHTML += `<div class="message user-msg">${text}</div>`;
+        inputField.value = "";
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/chat?user_input=${encodeURIComponent(text)}`, {
+                method: "POST",
+                headers: { "Accept": "application/json" }
+            });
+
+            const data = await response.json();
+            const formattedResponse = data.response.replace(/\n/g, "<br>");
+            chatBox.innerHTML += `<div class="message ai-msg">${formattedResponse}</div>`;
+        } catch (error) {
+            chatBox.innerHTML += `<div class="message ai-msg" style="color: #ff5252;">Error 500: Server unreachable. Probably because your last idea lacked asymmetric upside. (Or you forgot to run the python server).</div>`;
+        }
+        
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function clearMemory() {
+        try {
+            await fetch('http://127.0.0.1:8000/clear_memory', { method: 'POST' });
+            const chatBox = document.getElementById("chat-box");
+            chatBox.innerHTML = '<div class="message ai-msg">Memory wiped. We start fresh. Do not disappoint me this time.</div>';
+        } catch (error) {
+            console.error("Failed to clear memory", error);
+        }
+    }
+
+    function handleEnter(event) {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    }
+</script>
+
+</body>
+</html>"
