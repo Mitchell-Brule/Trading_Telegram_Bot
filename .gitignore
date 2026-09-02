@@ -3,3 +3,9 @@
 *.log
 __pycache__/
 *.pyc
+backtest_results.csv
+backtest_cache.csv
+data_cache/
+bot_leader.lock
+startup_sent.txt
+*.xlsx
